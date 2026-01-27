@@ -1,0 +1,660 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Nouvelle facture - Lignes</title>
+        <meta charset="UTF-8" />
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                max-width: 1100px;
+                margin: 0 auto;
+                padding: 40px 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+            }
+            .container {
+                background: white;
+                border-radius: 12px;
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+                overflow: hidden;
+            }
+            .header {
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                color: white;
+                padding: 24px 30px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .header h1 {
+                margin: 0;
+                font-size: 22px;
+                font-weight: 600;
+            }
+            .header .emitter {
+                opacity: 0.8;
+                font-size: 13px;
+            }
+            .steps {
+                display: flex;
+                justify-content: center;
+                padding: 16px 30px;
+                background: #f8fafc;
+                border-bottom: 1px solid #e2e8f0;
+            }
+            .step {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 0 20px;
+                color: #a0aec0;
+                font-size: 14px;
+            }
+            .step.completed {
+                color: #38a169;
+            }
+            .step.active {
+                color: #667eea;
+                font-weight: 600;
+            }
+            .step .number {
+                width: 26px;
+                height: 26px;
+                border-radius: 50%;
+                background: #e2e8f0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 12px;
+                font-weight: 600;
+            }
+            .step.completed .number {
+                background: #38a169;
+                color: white;
+            }
+            .step.active .number {
+                background: #667eea;
+                color: white;
+            }
+            .step-divider {
+                width: 40px;
+                height: 2px;
+                background: #e2e8f0;
+                margin: 0 10px;
+            }
+            .step.completed + .step-divider {
+                background: #38a169;
+            }
+
+            /* Resume */
+            .summary {
+                background: #f8fafc;
+                padding: 20px 30px;
+                border-bottom: 1px solid #e2e8f0;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 30px;
+            }
+            .summary-section h3 {
+                font-size: 12px;
+                font-weight: 600;
+                color: #667eea;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin: 0 0 12px 0;
+            }
+            .summary-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px 20px;
+            }
+            .summary-item {
+                font-size: 13px;
+            }
+            .summary-item .label {
+                color: #718096;
+            }
+            .summary-item .value {
+                color: #1a202c;
+                font-weight: 500;
+            }
+            .btn-modify {
+                font-size: 12px;
+                color: #667eea;
+                background: none;
+                border: 1px solid #667eea;
+                padding: 4px 12px;
+                border-radius: 4px;
+                cursor: pointer;
+                margin-left: 10px;
+            }
+            .btn-modify:hover {
+                background: #667eea;
+                color: white;
+            }
+
+            /* Contenu principal */
+            .main-content {
+                padding: 30px;
+            }
+            .section-title {
+                font-size: 16px;
+                font-weight: 600;
+                color: #1a1a2e;
+                margin: 0 0 20px 0;
+            }
+
+            /* Lignes */
+            .lines-header {
+                display: grid;
+                grid-template-columns: 3fr 100px 120px 80px 120px 80px;
+                gap: 12px;
+                padding: 12px 16px;
+                background: #edf2f7;
+                border-radius: 8px 8px 0 0;
+                font-size: 11px;
+                font-weight: 600;
+                color: #4a5568;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .lines-container {
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                overflow: hidden;
+            }
+            .line {
+                display: grid;
+                grid-template-columns: 3fr 100px 120px 80px 120px 80px;
+                gap: 12px;
+                padding: 12px 16px;
+                border-bottom: 1px solid #e2e8f0;
+                align-items: center;
+                background: white;
+            }
+            .line:last-child {
+                border-bottom: none;
+            }
+            .line:hover {
+                background: #f8fafc;
+            }
+            .line.error {
+                background: #fff5f5;
+                border-color: #feb2b2;
+            }
+            .line input {
+                width: 100%;
+                padding: 10px 12px;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                font-size: 14px;
+                background: white;
+            }
+            .line input:focus {
+                outline: none;
+                border-color: #667eea;
+                box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+            }
+            .line input.error {
+                border-color: #e53e3e;
+            }
+            .line input[type="number"] {
+                text-align: right;
+            }
+            .line .line-total {
+                font-weight: 600;
+                color: #1a202c;
+                text-align: right;
+                padding-right: 8px;
+            }
+            .line .btn-remove {
+                padding: 8px 12px;
+                background: #fff5f5;
+                color: #c53030;
+                border: 1px solid #feb2b2;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 13px;
+                transition: all 0.2s;
+            }
+            .line .btn-remove:hover {
+                background: #fed7d7;
+            }
+
+            /* Boutons */
+            .actions-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 20px;
+            }
+            .btn {
+                padding: 12px 24px;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 500;
+                transition: all 0.2s;
+            }
+            .btn-secondary {
+                background: #edf2f7;
+                color: #4a5568;
+            }
+            .btn-secondary:hover {
+                background: #e2e8f0;
+            }
+            .btn-primary {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+            }
+            .btn-primary:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            }
+
+            /* Totaux */
+            .totals {
+                margin-top: 24px;
+                padding: 20px;
+                background: #f8fafc;
+                border-radius: 8px;
+                display: flex;
+                justify-content: flex-end;
+            }
+            .totals-grid {
+                display: grid;
+                grid-template-columns: auto auto;
+                gap: 8px 30px;
+                text-align: right;
+            }
+            .totals-grid .label {
+                color: #718096;
+                font-size: 14px;
+            }
+            .totals-grid .value {
+                font-size: 14px;
+                font-weight: 500;
+                color: #1a202c;
+            }
+            .totals-grid .total-ttc .label {
+                font-size: 16px;
+                font-weight: 600;
+                color: #1a202c;
+            }
+            .totals-grid .total-ttc .value {
+                font-size: 18px;
+                font-weight: 700;
+                color: #667eea;
+            }
+
+            /* Messages */
+            .errors-container {
+                background: #fff5f5;
+                border-left: 4px solid #e53e3e;
+                color: #c53030;
+                padding: 16px 20px;
+                margin: 20px 30px;
+                border-radius: 0 8px 8px 0;
+                display: none;
+            }
+            .errors-container h4 {
+                margin: 0 0 8px 0;
+                font-size: 14px;
+            }
+            .errors-container ul {
+                margin: 0;
+                padding-left: 20px;
+                font-size: 13px;
+            }
+            .success-container {
+                background: #f0fff4;
+                border-left: 4px solid #38a169;
+                color: #276749;
+                padding: 16px 20px;
+                margin: 20px 30px;
+                border-radius: 0 8px 8px 0;
+                display: none;
+            }
+
+            .field-error {
+                color: #e53e3e;
+                font-size: 12px;
+                margin-top: 4px;
+            }
+
+            @media (max-width: 900px) {
+                .summary {
+                    grid-template-columns: 1fr;
+                }
+                .lines-header {
+                    display: none;
+                }
+                .line {
+                    grid-template-columns: 1fr 1fr;
+                    gap: 10px;
+                }
+                .line > *:first-child {
+                    grid-column: 1 / -1;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div>
+                    <h1>Nouvelle facture</h1>
+                    <div class="emitter">{{ emitter.name }}</div>
+                </div>
+            </div>
+
+            <div class="steps">
+                <div class="step completed">
+                    <span class="number">&#10003;</span>
+                    Informations
+                </div>
+                <div class="step-divider"></div>
+                <div class="step active">
+                    <span class="number">2</span>
+                    Lignes
+                </div>
+            </div>
+
+            <div class="summary">
+                <div class="summary-section">
+                    <h3>Facture <button class="btn-modify" onclick="window.location.href='/'">Modifier</button></h3>
+                    <div class="summary-grid">
+                        <div class="summary-item">
+                            <span class="label">Numero : </span>
+                            <span class="value" id="sum-invoice-number">{{ invoice.invoice_number }}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="label">Type : </span>
+                            <span class="value" id="sum-type">{{ invoice.type_label }}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="label">Date : </span>
+                            <span class="value" id="sum-issue-date">{{ invoice.issue_date }}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="label">Echeance : </span>
+                            <span class="value" id="sum-due-date">{{ invoice.due_date | default(value="-") }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="summary-section">
+                    <h3>Client</h3>
+                    <div class="summary-grid">
+                        <div class="summary-item" style="grid-column: 1 / -1;">
+                            <span class="label">Nom : </span>
+                            <span class="value" id="sum-recipient-name">{{ invoice.recipient_name }}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="label">SIRET : </span>
+                            <span class="value" id="sum-recipient-siret">{{ invoice.recipient_siret }}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="label">Pays : </span>
+                            <span class="value" id="sum-recipient-country">{{ invoice.recipient_country_code }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="errorsContainer" class="errors-container">
+                <h4>Veuillez corriger les erreurs suivantes</h4>
+                <ul id="errorsList"></ul>
+            </div>
+
+            <div id="successContainer" class="success-container">
+                <p id="successMessage"></p>
+            </div>
+
+            <form id="invoiceForm" class="main-content">
+                <h2 class="section-title">Lignes de facturation</h2>
+                <div class="field-error" data-field="lines"></div>
+
+                <div class="lines-container">
+                    <div class="lines-header">
+                        <div>Description</div>
+                        <div>Quantite</div>
+                        <div>Prix unitaire HT</div>
+                        <div>TVA %</div>
+                        <div>Total HT</div>
+                        <div></div>
+                    </div>
+                    <div id="lines">
+                        <div class="line" data-id="0">
+                            <input
+                                name="lines[0][description]"
+                                placeholder="Description du produit ou service"
+                            />
+                            <input
+                                name="lines[0][quantity]"
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                placeholder="1"
+                                onchange="updateLineTotal(this)"
+                            />
+                            <input
+                                name="lines[0][unit_price_ht]"
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                placeholder="0.00"
+                                onchange="updateLineTotal(this)"
+                            />
+                            <input
+                                name="lines[0][vat_rate]"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max="100"
+                                value="20"
+                                onchange="updateLineTotal(this)"
+                            />
+                            <div class="line-total" data-line="0">0.00 EUR</div>
+                            <button type="button" class="btn-remove" onclick="removeLine(this)">
+                                Supprimer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="actions-row">
+                    <button type="button" class="btn btn-secondary" onclick="addLine()">
+                        + Ajouter une ligne
+                    </button>
+                </div>
+
+                <div class="totals">
+                    <div class="totals-grid">
+                        <div class="label">Total HT</div>
+                        <div class="value" id="total-ht">0.00 EUR</div>
+                        <div class="label">Total TVA</div>
+                        <div class="value" id="total-vat">0.00 EUR</div>
+                        <div class="total-ttc">
+                            <div class="label">Total TTC</div>
+                        </div>
+                        <div class="total-ttc">
+                            <div class="value" id="total-ttc">0.00 EUR</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="actions-row" style="justify-content: flex-end; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+                    <button type="submit" class="btn btn-primary">Generer la facture Factur-X</button>
+                </div>
+            </form>
+        </div>
+
+        <script>
+            let lineCount = 1;
+
+            function addLine() {
+                const lines = document.getElementById("lines");
+                const newIndex = lineCount++;
+
+                const lineHtml = `
+                    <div class="line" data-id="${newIndex}">
+                        <input
+                            name="lines[${newIndex}][description]"
+                            placeholder="Description du produit ou service"
+                        />
+                        <input
+                            name="lines[${newIndex}][quantity]"
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            placeholder="1"
+                            onchange="updateLineTotal(this)"
+                        />
+                        <input
+                            name="lines[${newIndex}][unit_price_ht]"
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            placeholder="0.00"
+                            onchange="updateLineTotal(this)"
+                        />
+                        <input
+                            name="lines[${newIndex}][vat_rate]"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            value="20"
+                            onchange="updateLineTotal(this)"
+                        />
+                        <div class="line-total" data-line="${newIndex}">0.00 EUR</div>
+                        <button type="button" class="btn-remove" onclick="removeLine(this)">
+                            Supprimer
+                        </button>
+                    </div>
+                `;
+
+                lines.insertAdjacentHTML('beforeend', lineHtml);
+            }
+
+            function removeLine(btn) {
+                const lines = document.getElementById("lines");
+                if (lines.children.length > 1) {
+                    btn.closest(".line").remove();
+                    updateTotals();
+                } else {
+                    alert("La facture doit contenir au moins une ligne");
+                }
+            }
+
+            function updateLineTotal(input) {
+                const line = input.closest(".line");
+                const qty = parseFloat(line.querySelector('[name*="quantity"]').value) || 0;
+                const price = parseFloat(line.querySelector('[name*="unit_price_ht"]').value) || 0;
+                const totalHt = qty * price;
+
+                const lineId = line.dataset.id;
+                line.querySelector(`[data-line="${lineId}"]`).textContent = totalHt.toFixed(2) + " EUR";
+
+                updateTotals();
+            }
+
+            function updateTotals() {
+                let totalHt = 0;
+                let totalVat = 0;
+
+                document.querySelectorAll(".line").forEach(line => {
+                    const qty = parseFloat(line.querySelector('[name*="quantity"]').value) || 0;
+                    const price = parseFloat(line.querySelector('[name*="unit_price_ht"]').value) || 0;
+                    const vatRate = parseFloat(line.querySelector('[name*="vat_rate"]').value) || 0;
+
+                    const lineHt = qty * price;
+                    const lineVat = lineHt * (vatRate / 100);
+
+                    totalHt += lineHt;
+                    totalVat += lineVat;
+                });
+
+                const totalTtc = totalHt + totalVat;
+
+                document.getElementById("total-ht").textContent = totalHt.toFixed(2) + " EUR";
+                document.getElementById("total-vat").textContent = totalVat.toFixed(2) + " EUR";
+                document.getElementById("total-ttc").textContent = totalTtc.toFixed(2) + " EUR";
+            }
+
+            function clearErrors() {
+                document.getElementById("errorsContainer").style.display = "none";
+                document.getElementById("errorsList").innerHTML = "";
+                document.getElementById("successContainer").style.display = "none";
+                document.querySelectorAll(".error").forEach((el) => el.classList.remove("error"));
+                document.querySelectorAll(".field-error").forEach((el) => (el.textContent = ""));
+            }
+
+            function displayErrors(errors) {
+                clearErrors();
+                if (!errors || errors.length === 0) return;
+
+                const container = document.getElementById("errorsContainer");
+                const list = document.getElementById("errorsList");
+
+                errors.forEach((error) => {
+                    const li = document.createElement("li");
+                    li.textContent = error.message;
+                    list.appendChild(li);
+
+                    const input = document.querySelector(`[name="${error.field}"]`);
+                    if (input) {
+                        input.classList.add("error");
+                        const lineContainer = input.closest(".line");
+                        if (lineContainer) {
+                            lineContainer.classList.add("error");
+                        }
+                    }
+                });
+
+                container.style.display = "block";
+                container.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+
+            function displaySuccess(message) {
+                clearErrors();
+                const container = document.getElementById("successContainer");
+                document.getElementById("successMessage").textContent = message;
+                container.style.display = "block";
+            }
+
+            document.getElementById("invoiceForm").onsubmit = async (e) => {
+                e.preventDefault();
+                clearErrors();
+
+                const formData = new FormData(e.target);
+
+                try {
+                    const response = await fetch("/invoice", {
+                        method: "POST",
+                        body: formData,
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok || !data.success) {
+                        displayErrors(data.errors);
+                        return;
+                    }
+
+                    displaySuccess(
+                        `Facture n${data.invoice_number} generee avec succes - HT: ${data.total_ht.toFixed(2)} EUR | TVA: ${data.total_vat.toFixed(2)} EUR | TTC: ${data.total_ttc.toFixed(2)} EUR`
+                    );
+                } catch (error) {
+                    displayErrors([
+                        { field: "_form", message: "Erreur de communication: " + error.message }
+                    ]);
+                }
+            };
+        </script>
+    </body>
+</html>
