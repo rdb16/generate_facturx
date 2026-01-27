@@ -1,0 +1,416 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Factur-X Generator</title>
+        <meta charset="UTF-8" />
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+                max-width: 900px;
+                margin: 0 auto;
+                padding: 20px;
+                background: #f5f5f5;
+            }
+            h1 {
+                color: #333;
+            }
+            h3 {
+                color: #555;
+                margin-top: 20px;
+            }
+            form {
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+            .field-group {
+                margin-bottom: 15px;
+            }
+            .field-group label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: 500;
+                color: #333;
+            }
+            .field-group input {
+                width: 100%;
+                padding: 10px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                font-size: 14px;
+            }
+            .field-group input:focus {
+                outline: none;
+                border-color: #007cba;
+            }
+            .field-group input.error {
+                border-color: #dc3545;
+                background-color: #fff5f5;
+            }
+            .field-error {
+                color: #dc3545;
+                font-size: 12px;
+                margin-top: 4px;
+            }
+            .line {
+                border: 1px solid #ddd;
+                margin: 10px 0;
+                padding: 15px;
+                border-radius: 4px;
+                background: #fafafa;
+                display: flex;
+                gap: 10px;
+                align-items: flex-end;
+                flex-wrap: wrap;
+            }
+            .line.error {
+                border-color: #dc3545;
+                background-color: #fff5f5;
+            }
+            .line .field {
+                flex: 1;
+                min-width: 100px;
+            }
+            .line .field label {
+                display: block;
+                margin-bottom: 4px;
+                font-size: 12px;
+                color: #666;
+            }
+            .line .field input {
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+            }
+            .line .field input.error {
+                border-color: #dc3545;
+            }
+            .line button {
+                padding: 8px 12px;
+                background: #dc3545;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            .line button:hover {
+                background: #c82333;
+            }
+            .btn {
+                background: #007cba;
+                color: white;
+                padding: 12px 20px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                margin-right: 10px;
+                margin-top: 10px;
+            }
+            .btn:hover {
+                background: #005a87;
+            }
+            .btn-secondary {
+                background: #6c757d;
+            }
+            .btn-secondary:hover {
+                background: #545b62;
+            }
+            .errors-container {
+                background: #f8d7da;
+                border: 1px solid #f5c6cb;
+                color: #721c24;
+                padding: 15px;
+                border-radius: 4px;
+                margin-bottom: 20px;
+                display: none;
+            }
+            .errors-container h4 {
+                margin: 0 0 10px 0;
+            }
+            .errors-container ul {
+                margin: 0;
+                padding-left: 20px;
+            }
+            .success-container {
+                background: #d4edda;
+                border: 1px solid #c3e6cb;
+                color: #155724;
+                padding: 15px;
+                border-radius: 4px;
+                margin-bottom: 20px;
+                display: none;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Facture Factur-X</h1>
+        <p>
+            Emetteur: <strong>{{ emitter.name }}</strong> (SIRET: {{
+            emitter.siret }})
+        </p>
+
+        <div id="errorsContainer" class="errors-container">
+            <h4>Erreurs de validation</h4>
+            <ul id="errorsList"></ul>
+        </div>
+
+        <div id="successContainer" class="success-container">
+            <p id="successMessage"></p>
+        </div>
+
+        <form id="invoiceForm">
+            <h3>Destinataire</h3>
+            <div class="field-group">
+                <label for="recipient_name">Nom / Raison sociale *</label>
+                <input
+                    type="text"
+                    name="recipient_name"
+                    id="recipient_name"
+                    placeholder="Ex: Entreprise ABC"
+                    required
+                />
+                <div class="field-error" data-field="recipient_name"></div>
+            </div>
+            <div class="field-group">
+                <label for="recipient_siret">SIRET (14 chiffres) *</label>
+                <input
+                    type="text"
+                    name="recipient_siret"
+                    id="recipient_siret"
+                    placeholder="Ex: 12345678901234"
+                    required
+                    maxlength="14"
+                />
+                <div class="field-error" data-field="recipient_siret"></div>
+            </div>
+            <div class="field-group">
+                <label for="recipient_address">Adresse</label>
+                <input
+                    type="text"
+                    name="recipient_address"
+                    id="recipient_address"
+                    placeholder="Ex: 10 rue de Paris, 75001 Paris"
+                />
+            </div>
+
+            <h3>Lignes de facturation</h3>
+            <div class="field-error" data-field="lines"></div>
+            <div id="lines">
+                <div class="line" data-id="0">
+                    <div class="field" style="flex: 2">
+                        <label>Description *</label>
+                        <input
+                            name="lines[0][description]"
+                            placeholder="Description du produit/service"
+                        />
+                    </div>
+                    <div class="field">
+                        <label>Quantite *</label>
+                        <input
+                            name="lines[0][quantity]"
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            placeholder="1"
+                        />
+                    </div>
+                    <div class="field">
+                        <label>Prix unitaire HT *</label>
+                        <input
+                            name="lines[0][unit_price_ht]"
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            placeholder="0.00"
+                        />
+                    </div>
+                    <div class="field">
+                        <label>TVA %</label>
+                        <input
+                            name="lines[0][vat_rate]"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            placeholder="20"
+                            value="20"
+                        />
+                    </div>
+                    <button type="button" onclick="removeLine(this)">
+                        Supprimer
+                    </button>
+                </div>
+            </div>
+            <button type="button" class="btn btn-secondary" onclick="addLine()">
+                + Ajouter une ligne
+            </button>
+
+            <div
+                style="
+                    margin-top: 20px;
+                    border-top: 1px solid #ddd;
+                    padding-top: 20px;
+                "
+            >
+                <button type="submit" class="btn">Generer Factur-X</button>
+            </div>
+        </form>
+
+        <script>
+            let lineCount = 1;
+
+            function addLine() {
+                const lines = document.getElementById("lines");
+                const template = document.querySelector(".line");
+                const newLine = template.cloneNode(true);
+                const newIndex = lineCount++;
+
+                newLine.dataset.id = newIndex;
+                newLine.classList.remove("error");
+
+                // Met a jour les noms des champs avec le nouvel index
+                newLine.querySelectorAll("input").forEach((input) => {
+                    input.name = input.name.replace(/\[\d+\]/, `[${newIndex}]`);
+                    input.value = input.name.includes("vat_rate") ? "20" : "";
+                    input.classList.remove("error");
+                });
+
+                // Reattache l'evenement onclick
+                newLine.querySelector("button").onclick = function () {
+                    removeLine(this);
+                };
+
+                lines.appendChild(newLine);
+            }
+
+            function removeLine(btn) {
+                const lines = document.getElementById("lines");
+                if (lines.children.length > 1) {
+                    btn.parentElement.remove();
+                } else {
+                    alert("La facture doit contenir au moins une ligne");
+                }
+            }
+
+            function clearErrors() {
+                // Cache le conteneur d'erreurs
+                document.getElementById("errorsContainer").style.display =
+                    "none";
+                document.getElementById("errorsList").innerHTML = "";
+                document.getElementById("successContainer").style.display =
+                    "none";
+
+                // Retire les classes d'erreur des champs
+                document
+                    .querySelectorAll(".error")
+                    .forEach((el) => el.classList.remove("error"));
+                document
+                    .querySelectorAll(".field-error")
+                    .forEach((el) => (el.textContent = ""));
+            }
+
+            function displayErrors(errors) {
+                clearErrors();
+
+                if (!errors || errors.length === 0) return;
+
+                const container = document.getElementById("errorsContainer");
+                const list = document.getElementById("errorsList");
+
+                errors.forEach((error) => {
+                    // Ajoute a la liste globale
+                    const li = document.createElement("li");
+                    li.textContent = error.message;
+                    list.appendChild(li);
+
+                    // Marque le champ en erreur
+                    const fieldName = error.field;
+                    const input = document.querySelector(
+                        `[name="${fieldName}"]`,
+                    );
+                    if (input) {
+                        input.classList.add("error");
+
+                        // Si c'est une ligne, marque aussi le conteneur
+                        const lineContainer = input.closest(".line");
+                        if (lineContainer) {
+                            lineContainer.classList.add("error");
+                        }
+                    }
+
+                    // Affiche le message sous le champ
+                    const errorDiv = document.querySelector(
+                        `[data-field="${fieldName}"]`,
+                    );
+                    if (errorDiv) {
+                        errorDiv.textContent = error.message;
+                    }
+                });
+
+                container.style.display = "block";
+                container.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                });
+            }
+
+            function displaySuccess(message) {
+                clearErrors();
+                const container = document.getElementById("successContainer");
+                document.getElementById("successMessage").textContent = message;
+                container.style.display = "block";
+            }
+
+            document.getElementById("invoiceForm").onsubmit = async (e) => {
+                e.preventDefault();
+                clearErrors();
+
+                const formData = new FormData(e.target);
+
+                try {
+                    const response = await fetch("/invoice", {
+                        method: "POST",
+                        body: formData,
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok || !data.success) {
+                        displayErrors(data.errors);
+                        return;
+                    }
+
+                    // Succes
+                    displaySuccess(
+                        `${data.message} - Total HT: ${data.total_ht.toFixed(2)} EUR - Total TTC: ${data.total_ttc.toFixed(2)} EUR`,
+                    );
+
+                    // TODO: Quand le PDF sera genere, telecharger le fichier
+                    // const blob = await response.blob();
+                    // const url = URL.createObjectURL(blob);
+                    // const a = document.createElement("a");
+                    // a.href = url;
+                    // a.download = "facture.factur-x.pdf";
+                    // a.click();
+                } catch (error) {
+                    displayErrors([
+                        {
+                            field: "_form",
+                            message:
+                                "Erreur de communication avec le serveur: " +
+                                error.message,
+                        },
+                    ]);
+                }
+            };
+        </script>
+    </body>
+</html>
