@@ -1,4 +1,4 @@
-# Factur-X Create
+# Generate Factur-X 
 
 Application web Rust pour générer des factures conformes au standard Factur-X (norme française de facturation électronique combinant PDF et XML).
 
@@ -46,7 +46,7 @@ Le serveur démarre sur http://localhost:3000
 ## Structure du projet
 
 ```
-Factuere-X-create/
+GenerateFactur-X/
 ├── cargo.toml              # Dépendances Rust
 ├── config/
 │   └── emitter.toml        # Configuration émetteur
