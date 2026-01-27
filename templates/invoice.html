@@ -148,6 +148,41 @@
                 margin-bottom: 20px;
                 display: none;
             }
+            .field-row {
+                display: flex;
+                gap: 15px;
+                flex-wrap: wrap;
+            }
+            .field-row .field-group {
+                flex: 1;
+                min-width: 200px;
+            }
+            .field-row .field-group.small {
+                flex: 0 0 150px;
+                min-width: 120px;
+            }
+            .field-group select {
+                width: 100%;
+                padding: 10px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                font-size: 14px;
+                background: white;
+            }
+            .field-group select:focus {
+                outline: none;
+                border-color: #007cba;
+            }
+            .field-group select.error {
+                border-color: #dc3545;
+                background-color: #fff5f5;
+            }
+            .section-info {
+                font-size: 12px;
+                color: #666;
+                margin-bottom: 15px;
+                font-style: italic;
+            }
         </style>
     </head>
     <body>
@@ -167,9 +202,114 @@
         </div>
 
         <form id="invoiceForm">
-            <h3>Destinataire</h3>
+            <h3>Informations de la facture</h3>
+            <p class="section-info">
+                Champs obligatoires selon la norme Factur-X (profil
+                MINIMUM/BASIC)
+            </p>
+
+            <div class="field-row">
+                <div class="field-group">
+                    <label for="invoice_number"
+                        >Numero de facture (BT-1) *</label
+                    >
+                    <input
+                        type="text"
+                        name="invoice_number"
+                        id="invoice_number"
+                        placeholder="Ex: FAC-2024-0001"
+                        required
+                    />
+                    <div class="field-error" data-field="invoice_number"></div>
+                </div>
+                <div class="field-group small">
+                    <label for="type_code">Type de document (BT-3) *</label>
+                    <select name="type_code" id="type_code" required>
+                        <option value="380" selected>Facture (380)</option>
+                        <option value="381">Avoir (381)</option>
+                        <option value="384">Facture rectificative (384)</option>
+                        <option value="389">Facture d'acompte (389)</option>
+                    </select>
+                    <div class="field-error" data-field="type_code"></div>
+                </div>
+            </div>
+
+            <div class="field-row">
+                <div class="field-group">
+                    <label for="issue_date">Date d'emission (BT-2) *</label>
+                    <input
+                        type="date"
+                        name="issue_date"
+                        id="issue_date"
+                        required
+                    />
+                    <div class="field-error" data-field="issue_date"></div>
+                </div>
+                <div class="field-group">
+                    <label for="due_date">Date d'echeance (BT-9)</label>
+                    <input type="date" name="due_date" id="due_date" />
+                    <div class="field-error" data-field="due_date"></div>
+                </div>
+                <div class="field-group small">
+                    <label for="currency_code">Devise (BT-5) *</label>
+                    <select name="currency_code" id="currency_code" required>
+                        <option value="EUR" selected>EUR</option>
+                        <option value="USD">USD</option>
+                        <option value="GBP">GBP</option>
+                        <option value="CHF">CHF</option>
+                    </select>
+                    <div class="field-error" data-field="currency_code"></div>
+                </div>
+            </div>
+
+            <div class="field-row">
+                <div class="field-group">
+                    <label for="buyer_reference"
+                        >Reference acheteur (BT-10)</label
+                    >
+                    <input
+                        type="text"
+                        name="buyer_reference"
+                        id="buyer_reference"
+                        placeholder="Ex: Service Comptabilite"
+                    />
+                    <div class="field-error" data-field="buyer_reference"></div>
+                </div>
+                <div class="field-group">
+                    <label for="purchase_order_reference"
+                        >N° bon de commande (BT-13)</label
+                    >
+                    <input
+                        type="text"
+                        name="purchase_order_reference"
+                        id="purchase_order_reference"
+                        placeholder="Ex: BC-2024-0042"
+                    />
+                    <div
+                        class="field-error"
+                        data-field="purchase_order_reference"
+                    ></div>
+                </div>
+            </div>
+
             <div class="field-group">
-                <label for="recipient_name">Nom / Raison sociale *</label>
+                <label for="payment_terms"
+                    >Conditions de paiement (BT-20)</label
+                >
+                <input
+                    type="text"
+                    name="payment_terms"
+                    id="payment_terms"
+                    placeholder="Ex: Paiement a 30 jours fin de mois"
+                />
+                <div class="field-error" data-field="payment_terms"></div>
+            </div>
+
+            <h3>Destinataire (Acheteur)</h3>
+            <div class="field-group">
+                <label for="recipient_name"
+                    >Nom / Raison sociale (BT-44) *</label
+                >
                 <input
                     type="text"
                     name="recipient_name"
@@ -179,26 +319,76 @@
                 />
                 <div class="field-error" data-field="recipient_name"></div>
             </div>
-            <div class="field-group">
-                <label for="recipient_siret">SIRET (14 chiffres) *</label>
-                <input
-                    type="text"
-                    name="recipient_siret"
-                    id="recipient_siret"
-                    placeholder="Ex: 12345678901234"
-                    required
-                    maxlength="14"
-                />
-                <div class="field-error" data-field="recipient_siret"></div>
+
+            <div class="field-row">
+                <div class="field-group">
+                    <label for="recipient_siret">SIRET (BT-47) *</label>
+                    <input
+                        type="text"
+                        name="recipient_siret"
+                        id="recipient_siret"
+                        placeholder="Ex: 12345678901234"
+                        required
+                        maxlength="14"
+                    />
+                    <div class="field-error" data-field="recipient_siret"></div>
+                </div>
+                <div class="field-group">
+                    <label for="recipient_vat_number"
+                        >N° TVA intracommunautaire (BT-48)</label
+                    >
+                    <input
+                        type="text"
+                        name="recipient_vat_number"
+                        id="recipient_vat_number"
+                        placeholder="Ex: FR12345678901"
+                    />
+                    <div
+                        class="field-error"
+                        data-field="recipient_vat_number"
+                    ></div>
+                </div>
             </div>
-            <div class="field-group">
-                <label for="recipient_address">Adresse</label>
-                <input
-                    type="text"
-                    name="recipient_address"
-                    id="recipient_address"
-                    placeholder="Ex: 10 rue de Paris, 75001 Paris"
-                />
+
+            <div class="field-row">
+                <div class="field-group">
+                    <label for="recipient_address"
+                        >Adresse (BT-50 a BT-54)</label
+                    >
+                    <input
+                        type="text"
+                        name="recipient_address"
+                        id="recipient_address"
+                        placeholder="Ex: 10 rue de Paris, 75001 Paris"
+                    />
+                    <div
+                        class="field-error"
+                        data-field="recipient_address"
+                    ></div>
+                </div>
+                <div class="field-group small">
+                    <label for="recipient_country_code"
+                        >Code pays (BT-55) *</label
+                    >
+                    <select
+                        name="recipient_country_code"
+                        id="recipient_country_code"
+                        required
+                    >
+                        <option value="FR" selected>FR - France</option>
+                        <option value="BE">BE - Belgique</option>
+                        <option value="CH">CH - Suisse</option>
+                        <option value="DE">DE - Allemagne</option>
+                        <option value="ES">ES - Espagne</option>
+                        <option value="IT">IT - Italie</option>
+                        <option value="LU">LU - Luxembourg</option>
+                        <option value="GB">GB - Royaume-Uni</option>
+                    </select>
+                    <div
+                        class="field-error"
+                        data-field="recipient_country_code"
+                    ></div>
+                </div>
             </div>
 
             <h3>Lignes de facturation</h3>
@@ -390,7 +580,7 @@
 
                     // Succes
                     displaySuccess(
-                        `${data.message} - Total HT: ${data.total_ht.toFixed(2)} EUR - Total TTC: ${data.total_ttc.toFixed(2)} EUR`,
+                        `${data.message} - Facture n°${data.invoice_number} - Total HT: ${data.total_ht.toFixed(2)} EUR - TVA: ${data.total_vat.toFixed(2)} EUR - Total TTC: ${data.total_ttc.toFixed(2)} EUR`,
                     );
 
                     // TODO: Quand le PDF sera genere, telecharger le fichier

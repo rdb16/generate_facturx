@@ -1,5 +1,6 @@
 mod models;
 
+use axum::extract::Multipart;
 use axum::{
     extract::State,
     http::StatusCode,
@@ -7,7 +8,6 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use axum::extract::Multipart;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -66,9 +66,25 @@ async fn index(State(state): State<Arc<AppState>>) -> Html<String> {
 
 /// Parse les données du formulaire multipart/form-data
 async fn parse_form_data(mut multipart: Multipart) -> Result<InvoiceForm, String> {
+    // Champs obligatoires Factur-X
+    let mut invoice_number = String::new();
+    let mut issue_date = String::new();
+    let mut type_code: u16 = 380; // Facture par défaut
+    let mut currency_code = String::from("EUR");
+
+    // Champs optionnels
+    let mut due_date: Option<String> = None;
+    let mut payment_terms: Option<String> = None;
+    let mut buyer_reference: Option<String> = None;
+    let mut purchase_order_reference: Option<String> = None;
+
+    // Destinataire
     let mut recipient_name = String::new();
     let mut recipient_siret = String::new();
+    let mut recipient_vat_number: Option<String> = None;
     let mut recipient_address = String::new();
+    let mut recipient_country_code = String::from("FR");
+
     let mut lines_data: HashMap<usize, HashMap<String, String>> = HashMap::new();
 
     while let Some(field) = multipart.next_field().await.map_err(|e| e.to_string())? {
@@ -76,9 +92,55 @@ async fn parse_form_data(mut multipart: Multipart) -> Result<InvoiceForm, String
         let value = field.text().await.map_err(|e| e.to_string())?;
 
         match name.as_str() {
+            // Champs obligatoires de la facture
+            "invoice_number" => invoice_number = value,
+            "issue_date" => issue_date = value,
+            "type_code" => type_code = value.parse().unwrap_or(380),
+            "currency_code" => currency_code = value,
+
+            // Champs optionnels
+            "due_date" => {
+                due_date = if value.trim().is_empty() {
+                    None
+                } else {
+                    Some(value)
+                }
+            }
+            "payment_terms" => {
+                payment_terms = if value.trim().is_empty() {
+                    None
+                } else {
+                    Some(value)
+                }
+            }
+            "buyer_reference" => {
+                buyer_reference = if value.trim().is_empty() {
+                    None
+                } else {
+                    Some(value)
+                }
+            }
+            "purchase_order_reference" => {
+                purchase_order_reference = if value.trim().is_empty() {
+                    None
+                } else {
+                    Some(value)
+                }
+            }
+
+            // Destinataire
             "recipient_name" => recipient_name = value,
             "recipient_siret" => recipient_siret = value,
+            "recipient_vat_number" => {
+                recipient_vat_number = if value.trim().is_empty() {
+                    None
+                } else {
+                    Some(value)
+                }
+            }
             "recipient_address" => recipient_address = value,
+            "recipient_country_code" => recipient_country_code = value,
+
             _ if name.starts_with("lines[") => {
                 // Parse lines[0][description], lines[0][quantity], etc.
                 if let Some((index, field_name)) = parse_line_field(&name) {
@@ -123,9 +185,19 @@ async fn parse_form_data(mut multipart: Multipart) -> Result<InvoiceForm, String
     let lines: Vec<InvoiceLine> = lines.into_iter().map(|(_, line)| line).collect();
 
     Ok(InvoiceForm {
+        invoice_number,
+        issue_date,
+        type_code,
+        currency_code,
+        due_date,
+        payment_terms,
+        buyer_reference,
+        purchase_order_reference,
         recipient_name,
         recipient_siret,
+        recipient_vat_number,
         recipient_address,
+        recipient_country_code,
         lines,
     })
 }
@@ -138,25 +210,21 @@ fn parse_line_field(name: &str) -> Option<(usize, String)> {
     let index: usize = rest[..bracket_pos].parse().ok()?;
 
     let remaining = &rest[bracket_pos + 1..];
-    let field_name = remaining
-        .strip_prefix('[')?
-        .strip_suffix(']')?;
+    let field_name = remaining.strip_prefix('[')?.strip_suffix(']')?;
 
     Some((index, field_name.to_string()))
 }
 
 /// Endpoint de création de facture
-async fn create_invoice(
-    State(_state): State<Arc<AppState>>,
-    multipart: Multipart,
-) -> Response {
+async fn create_invoice(State(_state): State<Arc<AppState>>, multipart: Multipart) -> Response {
     // Parse le formulaire
     let form = match parse_form_data(multipart).await {
         Ok(form) => form,
         Err(e) => {
-            let response = ValidationResponse::with_errors(vec![
-                FieldError::new("_form", format!("Erreur de parsing: {}", e))
-            ]);
+            let response = ValidationResponse::with_errors(vec![FieldError::new(
+                "_form",
+                format!("Erreur de parsing: {}", e),
+            )]);
             return (StatusCode::BAD_REQUEST, Json(response)).into_response();
         }
     };
@@ -171,20 +239,24 @@ async fn create_invoice(
     // TODO: Générer le PDF Factur-X
     // Pour l'instant, on retourne un succès avec les données validées
     let mut form = form;
-    let (total_ht, total_ttc) = form.compute_totals();
+    let (total_ht, total_vat, total_ttc) = form.compute_totals();
 
     #[derive(Serialize)]
     struct SuccessResponse {
         success: bool,
         message: String,
+        invoice_number: String,
         total_ht: f64,
+        total_vat: f64,
         total_ttc: f64,
     }
 
     let response = SuccessResponse {
         success: true,
         message: "Facture validée avec succès".to_string(),
+        invoice_number: form.invoice_number,
         total_ht,
+        total_vat,
         total_ttc,
     };
 

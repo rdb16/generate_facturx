@@ -25,14 +25,12 @@ impl InvoiceLine {
 
     /// Calcule TVA = HT × taux TVA
     pub fn compute_total_vat(&mut self) {
-        self.total_vat = self.total_ht
-            .map(|ht| ht * (self.vat_rate / 100.0));
+        self.total_vat = self.total_ht.map(|ht| ht * (self.vat_rate / 100.0));
     }
 
     /// Calcule TTC = HT + TVA
     pub fn compute_total_ttc(&mut self) {
-        self.total_ttc = self.total_ht
-            .map(|ht| ht * (1.0 + self.vat_rate / 100.0));
+        self.total_ttc = self.total_ht.map(|ht| ht * (1.0 + self.vat_rate / 100.0));
     }
 
     /// Recalcule tous les totaux
@@ -45,6 +43,11 @@ impl InvoiceLine {
     /// Somme HT pour agrégation
     pub fn total_ht_value(&self) -> f64 {
         self.total_ht.unwrap_or_default()
+    }
+
+    /// Somme TVA pour agrégation
+    pub fn total_vat_value(&self) -> f64 {
+        self.total_vat.unwrap_or_default()
     }
 
     /// Somme TTC pour agrégation
@@ -73,7 +76,10 @@ impl InvoiceLine {
         }
 
         if self.unit_price_ht <= 0.0 {
-            result.add_error("unit_price_ht", "Le prix unitaire HT doit être supérieur à 0");
+            result.add_error(
+                "unit_price_ht",
+                "Le prix unitaire HT doit être supérieur à 0",
+            );
         }
 
         if self.vat_rate < 0.0 {
