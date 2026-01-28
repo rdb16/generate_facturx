@@ -10,6 +10,8 @@ Application web Rust pour generer des factures conformes au standard Factur-X (n
 - Calcul automatique des totaux HT, TVA et TTC
 - Support des rabais par ligne (pourcentage ou montant fixe)
 - Taux de TVA francais : 0%, 5.5%, 10%, 20%
+- Multi-devises : EUR, GBP, CHF, DKK, SEK, NOK, PLN, CZK, USD
+- Affichage des dates au format francais (JJ/MM/AAAA)
 - Interface moderne et responsive
 
 ## Prerequis
@@ -56,7 +58,7 @@ Le serveur demarre sur http://localhost:3000
    - Type de document : Facture, Avoir, Rectificative, Acompte
    - Date d'emission (obligatoire)
    - Date d'echeance (optionnel)
-   - Devise (EUR par defaut)
+   - Devise (EUR par defaut, choix parmi 9 devises europeennes)
    - Reference acheteur, bon de commande, conditions de paiement (optionnels)
 3. Remplissez les informations du client :
    - Raison sociale (obligatoire)
@@ -68,7 +70,7 @@ Le serveur demarre sur http://localhost:3000
 
 ### Etape 2 : Lignes de facturation
 
-1. Un resume des informations saisies s'affiche en haut de page
+1. Un resume des informations saisies s'affiche en haut de page (dates au format JJ/MM/AAAA, devise selectionnee)
 2. Ajoutez vos lignes de facturation :
    - Description du produit/service
    - Quantite
@@ -76,7 +78,7 @@ Le serveur demarre sur http://localhost:3000
    - Taux de TVA (0%, 5.5%, 10%, 20%)
 3. Pour ajouter un rabais sur une ligne :
    - Cliquez sur "+ Rabais" a cote de la description
-   - Saisissez la valeur et choisissez le type (% ou EUR)
+   - Saisissez la valeur et choisissez le type (% ou devise)
    - Le rabais est applique avant le calcul de la TVA
 4. Cliquez sur "+ Ajouter une ligne" pour plus de lignes
 5. Les totaux HT, TVA et TTC se calculent automatiquement
