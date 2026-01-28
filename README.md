@@ -8,6 +8,7 @@ Application web Rust pour generer des factures conformes au standard Factur-X (n
 - Conformite aux profils Factur-X MINIMUM et BASIC
 - Champs obligatoires selon la norme EN 16931
 - Calcul automatique des totaux HT, TVA et TTC
+- Recapitulatif par taux de TVA (conforme au decret de facturation)
 - Support des rabais par ligne (pourcentage ou montant fixe)
 - Taux de TVA francais : 0%, 5.5%, 10%, 20%
 - Multi-devises : EUR, GBP, CHF, DKK, SEK, NOK, PLN, CZK, USD
@@ -82,7 +83,9 @@ Le serveur demarre sur http://localhost:3000
    - Saisissez la valeur et choisissez le type (% ou devise)
    - Le rabais est applique avant le calcul de la TVA
 4. Cliquez sur "+ Ajouter une ligne" pour plus de lignes (les champs description, quantite et prix doivent etre remplis)
-5. Les totaux HT, TVA et TTC se calculent automatiquement
+5. Le recapitulatif affiche automatiquement :
+   - Tableau des montants HT et TVA par taux (20%, 10%, 5.5%, 0%)
+   - Total HT, Total TVA et Total TTC
 6. Cliquez sur "Generer la facture Factur-X"
 
 ## Champs Factur-X

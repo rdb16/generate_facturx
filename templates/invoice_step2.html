@@ -340,36 +340,104 @@
                 box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
             }
 
-            /* Totaux */
-            .totals {
+            /* Recapitulatif et Totaux */
+            .invoice-summary {
                 margin-top: 24px;
-                padding: 20px;
                 background: #f8fafc;
                 border-radius: 8px;
-                display: flex;
-                justify-content: flex-end;
+                overflow: hidden;
+                border: 1px solid #e2e8f0;
             }
-            .totals-grid {
-                display: grid;
-                grid-template-columns: auto auto;
-                gap: 8px 30px;
+            .vat-breakdown {
+                padding: 16px 20px;
+                border-bottom: 1px solid #e2e8f0;
+            }
+            .vat-breakdown-title {
+                font-size: 11px;
+                font-weight: 600;
+                color: #667eea;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-bottom: 12px;
+            }
+            .vat-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 13px;
+            }
+            .vat-table th {
+                text-align: left;
+                padding: 8px 12px;
+                background: #edf2f7;
+                color: #4a5568;
+                font-weight: 600;
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: 0.3px;
+            }
+            .vat-table th:not(:first-child) {
                 text-align: right;
             }
-            .totals-grid .label {
+            .vat-table td {
+                padding: 10px 12px;
+                border-bottom: 1px solid #e2e8f0;
+                color: #1a202c;
+            }
+            .vat-table td:not(:first-child) {
+                text-align: right;
+                font-variant-numeric: tabular-nums;
+            }
+            .vat-table tr:last-child td {
+                border-bottom: none;
+            }
+            .vat-table .vat-rate {
+                font-weight: 500;
+            }
+            .vat-table-empty {
+                color: #a0aec0;
+                font-style: italic;
+                padding: 12px;
+                text-align: center;
+            }
+            .totals-section {
+                padding: 16px 20px;
+                background: white;
+            }
+            .totals-grid {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 6px;
+            }
+            .totals-row {
+                display: flex;
+                justify-content: flex-end;
+                gap: 30px;
+                min-width: 280px;
+            }
+            .totals-row .label {
                 color: #718096;
                 font-size: 14px;
             }
-            .totals-grid .value {
+            .totals-row .value {
                 font-size: 14px;
                 font-weight: 500;
                 color: #1a202c;
+                min-width: 120px;
+                text-align: right;
+                font-variant-numeric: tabular-nums;
             }
-            .totals-grid .total-ttc .label {
+            .totals-row.total-ttc {
+                margin-top: 8px;
+                padding-top: 12px;
+                border-top: 2px solid #e2e8f0;
+            }
+            .totals-row.total-ttc .label {
                 font-size: 16px;
                 font-weight: 600;
                 color: #1a202c;
             }
-            .totals-grid .total-ttc .value {
+            .totals-row.total-ttc .value {
                 font-size: 18px;
                 font-weight: 700;
                 color: #667eea;
@@ -641,22 +709,47 @@
                     </button>
                 </div>
 
-                <div class="totals">
-                    <div class="totals-grid">
-                        <div class="label">Total HT</div>
-                        <div class="value" id="total-ht">
-                            0.00 {{ invoice.currency_code }}
+                <div class="invoice-summary">
+                    <div class="vat-breakdown">
+                        <div class="vat-breakdown-title">
+                            Recapitulatif par taux de TVA
                         </div>
-                        <div class="label">Total TVA</div>
-                        <div class="value" id="total-vat">
-                            0.00 {{ invoice.currency_code }}
-                        </div>
-                        <div class="total-ttc">
-                            <div class="label">Total TTC</div>
-                        </div>
-                        <div class="total-ttc">
-                            <div class="value" id="total-ttc">
-                                0.00 {{ invoice.currency_code }}
+                        <table class="vat-table">
+                            <thead>
+                                <tr>
+                                    <th>Taux</th>
+                                    <th>Base HT</th>
+                                    <th>Montant TVA</th>
+                                </tr>
+                            </thead>
+                            <tbody id="vat-breakdown-body">
+                                <tr>
+                                    <td colspan="3" class="vat-table-empty">
+                                        Aucune ligne saisie
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="totals-section">
+                        <div class="totals-grid">
+                            <div class="totals-row">
+                                <span class="label">Total HT</span>
+                                <span class="value" id="total-ht"
+                                    >0.00 {{ invoice.currency_code }}</span
+                                >
+                            </div>
+                            <div class="totals-row">
+                                <span class="label">Total TVA</span>
+                                <span class="value" id="total-vat"
+                                    >0.00 {{ invoice.currency_code }}</span
+                                >
+                            </div>
+                            <div class="totals-row total-ttc">
+                                <span class="label">Total TTC</span>
+                                <span class="value" id="total-ttc"
+                                    >0.00 {{ invoice.currency_code }}</span
+                                >
                             </div>
                         </div>
                     </div>
@@ -905,6 +998,9 @@
                 let totalHt = 0;
                 let totalVat = 0;
 
+                // Objet pour regrouper par taux de TVA
+                const vatByRate = {};
+
                 document
                     .querySelectorAll(".line-wrapper")
                     .forEach((wrapper) => {
@@ -951,9 +1047,45 @@
 
                         totalHt += netHt;
                         totalVat += lineVat;
+
+                        // Regrouper par taux de TVA
+                        if (netHt > 0) {
+                            if (!vatByRate[vatRate]) {
+                                vatByRate[vatRate] = {
+                                    baseHt: 0,
+                                    vatAmount: 0,
+                                };
+                            }
+                            vatByRate[vatRate].baseHt += netHt;
+                            vatByRate[vatRate].vatAmount += lineVat;
+                        }
                     });
 
                 const totalTtc = totalHt + totalVat;
+
+                // Mise a jour du tableau recapitulatif TVA
+                const vatBody = document.getElementById("vat-breakdown-body");
+                const rates = Object.keys(vatByRate).sort(
+                    (a, b) => parseFloat(b) - parseFloat(a),
+                );
+
+                if (rates.length === 0) {
+                    vatBody.innerHTML =
+                        '<tr><td colspan="3" class="vat-table-empty">Aucune ligne saisie</td></tr>';
+                } else {
+                    let html = "";
+                    rates.forEach((rate) => {
+                        const data = vatByRate[rate];
+                        const rateLabel =
+                            rate === "5.5" ? "5,5 %" : rate + " %";
+                        html += `<tr>
+                            <td class="vat-rate">${rateLabel}</td>
+                            <td>${data.baseHt.toFixed(2)} ${currency}</td>
+                            <td>${data.vatAmount.toFixed(2)} ${currency}</td>
+                        </tr>`;
+                    });
+                    vatBody.innerHTML = html;
+                }
 
                 document.getElementById("total-ht").textContent =
                     totalHt.toFixed(2) + " " + currency;
