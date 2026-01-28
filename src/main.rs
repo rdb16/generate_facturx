@@ -282,6 +282,16 @@ async fn parse_form_data(
     let mut lines: Vec<(usize, InvoiceLine)> = lines_data
         .into_iter()
         .map(|(index, fields)| {
+            // Parse le rabais (optionnel)
+            let discount_value = fields
+                .get("discount_value")
+                .and_then(|v| v.parse::<f64>().ok())
+                .filter(|&v| v > 0.0);
+            let discount_type = fields
+                .get("discount_type")
+                .cloned()
+                .filter(|v| !v.is_empty());
+
             let line = InvoiceLine {
                 description: fields.get("description").cloned().unwrap_or_default(),
                 quantity: fields
@@ -296,9 +306,12 @@ async fn parse_form_data(
                     .get("vat_rate")
                     .and_then(|v| v.parse().ok())
                     .unwrap_or(20.0),
+                discount_value,
+                discount_type,
                 total_ht: None,
                 total_vat: None,
                 total_ttc: None,
+                discount_amount: None,
             };
             (index, line)
         })

@@ -229,6 +229,85 @@
                 background: #fed7d7;
             }
 
+            /* Ligne wrapper pour inclure le rabais */
+            .line-wrapper {
+                border-bottom: 1px solid #e2e8f0;
+            }
+            .line-wrapper:last-child {
+                border-bottom: none;
+            }
+            .line-wrapper .line {
+                border-bottom: none;
+            }
+
+            /* Rabais */
+            .discount-toggle {
+                font-size: 11px;
+                color: #667eea;
+                background: none;
+                border: none;
+                cursor: pointer;
+                padding: 4px 8px;
+                margin-left: 8px;
+                border-radius: 4px;
+            }
+            .discount-toggle:hover {
+                background: #eef2ff;
+            }
+            .discount-row {
+                display: none;
+                padding: 8px 16px 12px 16px;
+                background: #fafbfc;
+                border-top: 1px dashed #e2e8f0;
+                align-items: center;
+                gap: 12px;
+            }
+            .discount-row.visible {
+                display: flex;
+            }
+            .discount-row .discount-label {
+                font-size: 12px;
+                color: #718096;
+                white-space: nowrap;
+            }
+            .discount-row input,
+            .discount-row select {
+                padding: 6px 10px;
+                border: 1px solid #e2e8f0;
+                border-radius: 4px;
+                font-size: 13px;
+                background: white;
+            }
+            .discount-row input {
+                width: 100px;
+                text-align: right;
+            }
+            .discount-row select {
+                width: 80px;
+            }
+            .discount-row input:focus,
+            .discount-row select:focus {
+                outline: none;
+                border-color: #667eea;
+            }
+            .discount-row .discount-amount {
+                font-size: 12px;
+                color: #c53030;
+                font-weight: 500;
+                min-width: 80px;
+            }
+            .discount-row .btn-clear-discount {
+                font-size: 11px;
+                color: #a0aec0;
+                background: none;
+                border: none;
+                cursor: pointer;
+                padding: 4px;
+            }
+            .discount-row .btn-clear-discount:hover {
+                color: #c53030;
+            }
+
             /* Boutons */
             .actions-row {
                 display: flex;
@@ -456,44 +535,88 @@
                         <div></div>
                     </div>
                     <div id="lines">
-                        <div class="line" data-id="0">
-                            <input
-                                name="lines[0][description]"
-                                placeholder="Description du produit ou service"
-                            />
-                            <input
-                                name="lines[0][quantity]"
-                                type="number"
-                                step="0.01"
-                                min="0.01"
-                                placeholder="1"
-                                onchange="updateLineTotal(this)"
-                            />
-                            <input
-                                name="lines[0][unit_price_ht]"
-                                type="number"
-                                step="0.01"
-                                min="0.01"
-                                placeholder="0.00"
-                                onchange="updateLineTotal(this)"
-                            />
-                            <select
-                                name="lines[0][vat_rate]"
-                                onchange="updateLineTotal(this)"
-                            >
-                                <option value="0">0 %</option>
-                                <option value="5.5">5,5 %</option>
-                                <option value="10">10 %</option>
-                                <option value="20" selected>20 %</option>
-                            </select>
-                            <div class="line-total" data-line="0">0.00 EUR</div>
-                            <button
-                                type="button"
-                                class="btn-remove"
-                                onclick="removeLine(this)"
-                            >
-                                Supprimer
-                            </button>
+                        <div class="line-wrapper" data-id="0">
+                            <div class="line">
+                                <div style="display: flex; align-items: center">
+                                    <input
+                                        name="lines[0][description]"
+                                        placeholder="Description du produit ou service"
+                                        style="flex: 1"
+                                    />
+                                    <button
+                                        type="button"
+                                        class="discount-toggle"
+                                        onclick="toggleDiscount(this)"
+                                    >
+                                        + Rabais
+                                    </button>
+                                </div>
+                                <input
+                                    name="lines[0][quantity]"
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    placeholder="1"
+                                    onchange="updateLineTotal(this)"
+                                />
+                                <input
+                                    name="lines[0][unit_price_ht]"
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    placeholder="0.00"
+                                    onchange="updateLineTotal(this)"
+                                />
+                                <select
+                                    name="lines[0][vat_rate]"
+                                    onchange="updateLineTotal(this)"
+                                >
+                                    <option value="0">0 %</option>
+                                    <option value="5.5">5,5 %</option>
+                                    <option value="10">10 %</option>
+                                    <option value="20" selected>20 %</option>
+                                </select>
+                                <div class="line-total" data-line="0">
+                                    0.00 EUR
+                                </div>
+                                <button
+                                    type="button"
+                                    class="btn-remove"
+                                    onclick="removeLine(this)"
+                                >
+                                    Supprimer
+                                </button>
+                            </div>
+                            <div class="discount-row">
+                                <span class="discount-label">Rabais :</span>
+                                <input
+                                    name="lines[0][discount_value]"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    placeholder="0"
+                                    onchange="updateLineTotal(this)"
+                                />
+                                <select
+                                    name="lines[0][discount_type]"
+                                    onchange="updateLineTotal(this)"
+                                >
+                                    <option value="percent">%</option>
+                                    <option value="amount">EUR</option>
+                                </select>
+                                <span
+                                    class="discount-amount"
+                                    data-discount="0"
+                                ></span>
+                                <button
+                                    type="button"
+                                    class="btn-clear-discount"
+                                    onclick="clearDiscount(this)"
+                                    title="Supprimer le rabais"
+                                >
+                                    &#10005;
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -547,37 +670,60 @@
                 const newIndex = lineCount++;
 
                 const lineHtml = `
-                    <div class="line" data-id="${newIndex}">
-                        <input
-                            name="lines[${newIndex}][description]"
-                            placeholder="Description du produit ou service"
-                        />
-                        <input
-                            name="lines[${newIndex}][quantity]"
-                            type="number"
-                            step="0.01"
-                            min="0.01"
-                            placeholder="1"
-                            onchange="updateLineTotal(this)"
-                        />
-                        <input
-                            name="lines[${newIndex}][unit_price_ht]"
-                            type="number"
-                            step="0.01"
-                            min="0.01"
-                            placeholder="0.00"
-                            onchange="updateLineTotal(this)"
-                        />
-                        <select name="lines[${newIndex}][vat_rate]" onchange="updateLineTotal(this)">
-                            <option value="0">0 %</option>
-                            <option value="5.5">5,5 %</option>
-                            <option value="10">10 %</option>
-                            <option value="20" selected>20 %</option>
-                        </select>
-                        <div class="line-total" data-line="${newIndex}">0.00 EUR</div>
-                        <button type="button" class="btn-remove" onclick="removeLine(this)">
-                            Supprimer
-                        </button>
+                    <div class="line-wrapper" data-id="${newIndex}">
+                        <div class="line">
+                            <div style="display: flex; align-items: center;">
+                                <input
+                                    name="lines[${newIndex}][description]"
+                                    placeholder="Description du produit ou service"
+                                    style="flex: 1;"
+                                />
+                                <button type="button" class="discount-toggle" onclick="toggleDiscount(this)">+ Rabais</button>
+                            </div>
+                            <input
+                                name="lines[${newIndex}][quantity]"
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                placeholder="1"
+                                onchange="updateLineTotal(this)"
+                            />
+                            <input
+                                name="lines[${newIndex}][unit_price_ht]"
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                placeholder="0.00"
+                                onchange="updateLineTotal(this)"
+                            />
+                            <select name="lines[${newIndex}][vat_rate]" onchange="updateLineTotal(this)">
+                                <option value="0">0 %</option>
+                                <option value="5.5">5,5 %</option>
+                                <option value="10">10 %</option>
+                                <option value="20" selected>20 %</option>
+                            </select>
+                            <div class="line-total" data-line="${newIndex}">0.00 EUR</div>
+                            <button type="button" class="btn-remove" onclick="removeLine(this)">
+                                Supprimer
+                            </button>
+                        </div>
+                        <div class="discount-row">
+                            <span class="discount-label">Rabais :</span>
+                            <input
+                                name="lines[${newIndex}][discount_value]"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                placeholder="0"
+                                onchange="updateLineTotal(this)"
+                            />
+                            <select name="lines[${newIndex}][discount_type]" onchange="updateLineTotal(this)">
+                                <option value="percent">%</option>
+                                <option value="amount">EUR</option>
+                            </select>
+                            <span class="discount-amount" data-discount="${newIndex}"></span>
+                            <button type="button" class="btn-clear-discount" onclick="clearDiscount(this)" title="Supprimer le rabais">&#10005;</button>
+                        </div>
                     </div>
                 `;
 
@@ -587,28 +733,96 @@
             function removeLine(btn) {
                 const lines = document.getElementById("lines");
                 if (lines.children.length > 1) {
-                    btn.closest(".line").remove();
+                    btn.closest(".line-wrapper").remove();
                     updateTotals();
                 } else {
                     alert("La facture doit contenir au moins une ligne");
                 }
             }
 
+            function toggleDiscount(btn) {
+                const wrapper = btn.closest(".line-wrapper");
+                const discountRow = wrapper.querySelector(".discount-row");
+                const isVisible = discountRow.classList.contains("visible");
+
+                if (isVisible) {
+                    discountRow.classList.remove("visible");
+                    btn.textContent = "+ Rabais";
+                } else {
+                    discountRow.classList.add("visible");
+                    btn.textContent = "- Rabais";
+                }
+            }
+
+            function clearDiscount(btn) {
+                const wrapper = btn.closest(".line-wrapper");
+                const discountInput = wrapper.querySelector(
+                    '[name*="discount_value"]',
+                );
+                const discountType = wrapper.querySelector(
+                    '[name*="discount_type"]',
+                );
+
+                discountInput.value = "";
+                discountType.value = "percent";
+
+                updateLineTotal(discountInput);
+
+                // Masquer la ligne de rabais
+                const discountRow = wrapper.querySelector(".discount-row");
+                discountRow.classList.remove("visible");
+                wrapper.querySelector(".discount-toggle").textContent =
+                    "+ Rabais";
+            }
+
             function updateLineTotal(input) {
-                const line = input.closest(".line");
+                const wrapper = input.closest(".line-wrapper");
+                const lineId = wrapper.dataset.id;
+
                 const qty =
                     parseFloat(
-                        line.querySelector('[name*="quantity"]').value,
+                        wrapper.querySelector('[name*="quantity"]').value,
                     ) || 0;
                 const price =
                     parseFloat(
-                        line.querySelector('[name*="unit_price_ht"]').value,
+                        wrapper.querySelector('[name*="unit_price_ht"]').value,
                     ) || 0;
-                const totalHt = qty * price;
+                const discountValue =
+                    parseFloat(
+                        wrapper.querySelector('[name*="discount_value"]').value,
+                    ) || 0;
+                const discountType = wrapper.querySelector(
+                    '[name*="discount_type"]',
+                ).value;
 
-                const lineId = line.dataset.id;
-                line.querySelector(`[data-line="${lineId}"]`).textContent =
-                    totalHt.toFixed(2) + " EUR";
+                const grossHt = qty * price;
+
+                // Calcul du rabais
+                let discountAmount = 0;
+                if (discountValue > 0) {
+                    if (discountType === "percent") {
+                        discountAmount = grossHt * (discountValue / 100);
+                    } else {
+                        discountAmount = discountValue;
+                    }
+                }
+
+                const netHt = Math.max(0, grossHt - discountAmount);
+
+                // Affichage du total HT net
+                wrapper.querySelector(`[data-line="${lineId}"]`).textContent =
+                    netHt.toFixed(2) + " EUR";
+
+                // Affichage du montant du rabais
+                const discountDisplay = wrapper.querySelector(
+                    `[data-discount="${lineId}"]`,
+                );
+                if (discountAmount > 0) {
+                    discountDisplay.textContent =
+                        "-" + discountAmount.toFixed(2) + " EUR";
+                } else {
+                    discountDisplay.textContent = "";
+                }
 
                 updateTotals();
             }
@@ -617,26 +831,53 @@
                 let totalHt = 0;
                 let totalVat = 0;
 
-                document.querySelectorAll(".line").forEach((line) => {
-                    const qty =
-                        parseFloat(
-                            line.querySelector('[name*="quantity"]').value,
-                        ) || 0;
-                    const price =
-                        parseFloat(
-                            line.querySelector('[name*="unit_price_ht"]').value,
-                        ) || 0;
-                    const vatRate =
-                        parseFloat(
-                            line.querySelector('[name*="vat_rate"]').value,
-                        ) || 0;
+                document
+                    .querySelectorAll(".line-wrapper")
+                    .forEach((wrapper) => {
+                        const qty =
+                            parseFloat(
+                                wrapper.querySelector('[name*="quantity"]')
+                                    .value,
+                            ) || 0;
+                        const price =
+                            parseFloat(
+                                wrapper.querySelector('[name*="unit_price_ht"]')
+                                    .value,
+                            ) || 0;
+                        const vatRate =
+                            parseFloat(
+                                wrapper.querySelector('[name*="vat_rate"]')
+                                    .value,
+                            ) || 0;
+                        const discountValue =
+                            parseFloat(
+                                wrapper.querySelector(
+                                    '[name*="discount_value"]',
+                                ).value,
+                            ) || 0;
+                        const discountType = wrapper.querySelector(
+                            '[name*="discount_type"]',
+                        ).value;
 
-                    const lineHt = qty * price;
-                    const lineVat = lineHt * (vatRate / 100);
+                        const grossHt = qty * price;
 
-                    totalHt += lineHt;
-                    totalVat += lineVat;
-                });
+                        // Calcul du rabais
+                        let discountAmount = 0;
+                        if (discountValue > 0) {
+                            if (discountType === "percent") {
+                                discountAmount =
+                                    grossHt * (discountValue / 100);
+                            } else {
+                                discountAmount = discountValue;
+                            }
+                        }
+
+                        const netHt = Math.max(0, grossHt - discountAmount);
+                        const lineVat = netHt * (vatRate / 100);
+
+                        totalHt += netHt;
+                        totalVat += lineVat;
+                    });
 
                 const totalTtc = totalHt + totalVat;
 
