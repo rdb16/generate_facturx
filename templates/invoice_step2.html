@@ -475,14 +475,20 @@
                         <div class="summary-item">
                             <span class="label">Date : </span>
                             <span class="value" id="sum-issue-date"
-                                >{{ invoice.issue_date }}</span
+                                >{{ invoice.issue_date_display }}</span
                             >
                         </div>
                         <div class="summary-item">
                             <span class="label">Echeance : </span>
                             <span class="value" id="sum-due-date"
-                                >{{ invoice.due_date | default(value="-")
-                                }}</span
+                                >{{ invoice.due_date_display |
+                                default(value="-") }}</span
+                            >
+                        </div>
+                        <div class="summary-item">
+                            <span class="label">Devise : </span>
+                            <span class="value" id="sum-currency"
+                                >{{ invoice.currency_code }}</span
                             >
                         </div>
                     </div>
@@ -577,7 +583,7 @@
                                     <option value="20" selected>20 %</option>
                                 </select>
                                 <div class="line-total" data-line="0">
-                                    0.00 EUR
+                                    0.00 {{ invoice.currency_code }}
                                 </div>
                                 <button
                                     type="button"
@@ -602,7 +608,9 @@
                                     onchange="updateLineTotal(this)"
                                 >
                                     <option value="percent">%</option>
-                                    <option value="amount">EUR</option>
+                                    <option value="amount">
+                                        {{ invoice.currency_code }}
+                                    </option>
                                 </select>
                                 <span
                                     class="discount-amount"
@@ -634,14 +642,20 @@
                 <div class="totals">
                     <div class="totals-grid">
                         <div class="label">Total HT</div>
-                        <div class="value" id="total-ht">0.00 EUR</div>
+                        <div class="value" id="total-ht">
+                            0.00 {{ invoice.currency_code }}
+                        </div>
                         <div class="label">Total TVA</div>
-                        <div class="value" id="total-vat">0.00 EUR</div>
+                        <div class="value" id="total-vat">
+                            0.00 {{ invoice.currency_code }}
+                        </div>
                         <div class="total-ttc">
                             <div class="label">Total TTC</div>
                         </div>
                         <div class="total-ttc">
-                            <div class="value" id="total-ttc">0.00 EUR</div>
+                            <div class="value" id="total-ttc">
+                                0.00 {{ invoice.currency_code }}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -664,6 +678,7 @@
 
         <script>
             let lineCount = 1;
+            const currency = "{{ invoice.currency_code }}";
 
             function addLine() {
                 const lines = document.getElementById("lines");
@@ -702,7 +717,7 @@
                                 <option value="10">10 %</option>
                                 <option value="20" selected>20 %</option>
                             </select>
-                            <div class="line-total" data-line="${newIndex}">0.00 EUR</div>
+                            <div class="line-total" data-line="${newIndex}">0.00 ${currency}</div>
                             <button type="button" class="btn-remove" onclick="removeLine(this)">
                                 Supprimer
                             </button>
@@ -719,7 +734,7 @@
                             />
                             <select name="lines[${newIndex}][discount_type]" onchange="updateLineTotal(this)">
                                 <option value="percent">%</option>
-                                <option value="amount">EUR</option>
+                                <option value="amount">${currency}</option>
                             </select>
                             <span class="discount-amount" data-discount="${newIndex}"></span>
                             <button type="button" class="btn-clear-discount" onclick="clearDiscount(this)" title="Supprimer le rabais">&#10005;</button>
@@ -811,7 +826,7 @@
 
                 // Affichage du total HT net
                 wrapper.querySelector(`[data-line="${lineId}"]`).textContent =
-                    netHt.toFixed(2) + " EUR";
+                    netHt.toFixed(2) + " " + currency;
 
                 // Affichage du montant du rabais
                 const discountDisplay = wrapper.querySelector(
@@ -819,7 +834,7 @@
                 );
                 if (discountAmount > 0) {
                     discountDisplay.textContent =
-                        "-" + discountAmount.toFixed(2) + " EUR";
+                        "-" + discountAmount.toFixed(2) + " " + currency;
                 } else {
                     discountDisplay.textContent = "";
                 }
@@ -882,11 +897,11 @@
                 const totalTtc = totalHt + totalVat;
 
                 document.getElementById("total-ht").textContent =
-                    totalHt.toFixed(2) + " EUR";
+                    totalHt.toFixed(2) + " " + currency;
                 document.getElementById("total-vat").textContent =
-                    totalVat.toFixed(2) + " EUR";
+                    totalVat.toFixed(2) + " " + currency;
                 document.getElementById("total-ttc").textContent =
-                    totalTtc.toFixed(2) + " EUR";
+                    totalTtc.toFixed(2) + " " + currency;
             }
 
             function clearErrors() {
@@ -961,7 +976,7 @@
                     }
 
                     displaySuccess(
-                        `Facture n${data.invoice_number} generee avec succes - HT: ${data.total_ht.toFixed(2)} EUR | TVA: ${data.total_vat.toFixed(2)} EUR | TTC: ${data.total_ttc.toFixed(2)} EUR`,
+                        `Facture n${data.invoice_number} generee avec succes - HT: ${data.total_ht.toFixed(2)} ${currency} | TVA: ${data.total_vat.toFixed(2)} ${currency} | TTC: ${data.total_ttc.toFixed(2)} ${currency}`,
                     );
                 } catch (error) {
                     displayErrors([

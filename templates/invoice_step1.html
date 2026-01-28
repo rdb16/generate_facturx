@@ -8,7 +8,9 @@
                 box-sizing: border-box;
             }
             body {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
                 max-width: 700px;
                 margin: 0 auto;
                 padding: 40px 20px;
@@ -205,7 +207,9 @@
         <div class="container">
             <div class="header">
                 <h1>Nouvelle facture</h1>
-                <div class="emitter">{{ emitter.name }} - SIRET : {{ emitter.siret }}</div>
+                <div class="emitter">
+                    {{ emitter.name }} - SIRET : {{ emitter.siret }}
+                </div>
             </div>
 
             <div class="steps">
@@ -231,7 +235,11 @@
 
                     <div class="field-row">
                         <div class="field-group">
-                            <label for="invoice_number">Numero de facture<span class="required">*</span></label>
+                            <label for="invoice_number"
+                                >Numero de facture<span class="required"
+                                    >*</span
+                                ></label
+                            >
                             <input
                                 type="text"
                                 name="invoice_number"
@@ -239,46 +247,107 @@
                                 placeholder="FAC-2024-0001"
                                 required
                             />
-                            <div class="field-error" data-field="invoice_number"></div>
+                            <div
+                                class="field-error"
+                                data-field="invoice_number"
+                            ></div>
                         </div>
                         <div class="field-group">
-                            <label for="type_code">Type de document<span class="required">*</span></label>
+                            <label for="type_code"
+                                >Type de document<span class="required"
+                                    >*</span
+                                ></label
+                            >
                             <select name="type_code" id="type_code" required>
                                 <option value="380" selected>Facture</option>
                                 <option value="381">Avoir</option>
                                 <option value="384">Rectificative</option>
                                 <option value="389">Acompte</option>
                             </select>
-                            <div class="field-error" data-field="type_code"></div>
+                            <div
+                                class="field-error"
+                                data-field="type_code"
+                            ></div>
                         </div>
                         <div class="field-group">
-                            <label for="currency_code">Devise<span class="required">*</span></label>
-                            <select name="currency_code" id="currency_code" required>
-                                <option value="EUR" selected>EUR</option>
-                                <option value="USD">USD</option>
-                                <option value="GBP">GBP</option>
-                                <option value="CHF">CHF</option>
+                            <label for="currency_code"
+                                >Devise<span class="required">*</span></label
+                            >
+                            <select
+                                name="currency_code"
+                                id="currency_code"
+                                required
+                            >
+                                <option value="EUR" selected>EUR - Euro</option>
+                                <option value="GBP">
+                                    GBP - Livre sterling
+                                </option>
+                                <option value="CHF">CHF - Franc suisse</option>
+                                <option value="DKK">
+                                    DKK - Couronne danoise
+                                </option>
+                                <option value="SEK">
+                                    SEK - Couronne suedoise
+                                </option>
+                                <option value="NOK">
+                                    NOK - Couronne norvegienne
+                                </option>
+                                <option value="PLN">
+                                    PLN - Zloty polonais
+                                </option>
+                                <option value="CZK">
+                                    CZK - Couronne tcheque
+                                </option>
+                                <option value="USD">
+                                    USD - Dollar americain
+                                </option>
                             </select>
-                            <div class="field-error" data-field="currency_code"></div>
+                            <div
+                                class="field-error"
+                                data-field="currency_code"
+                            ></div>
                         </div>
                     </div>
 
                     <div class="field-row">
                         <div class="field-group">
-                            <label for="issue_date">Date d'emission<span class="required">*</span></label>
-                            <input type="date" name="issue_date" id="issue_date" required />
-                            <div class="field-error" data-field="issue_date"></div>
+                            <label for="issue_date"
+                                >Date d'emission<span class="required"
+                                    >*</span
+                                ></label
+                            >
+                            <input
+                                type="date"
+                                name="issue_date"
+                                id="issue_date"
+                                required
+                            />
+                            <div
+                                class="field-error"
+                                data-field="issue_date"
+                            ></div>
                         </div>
                         <div class="field-group">
-                            <label for="due_date">Date d'echeance<span class="optional">(optionnel)</span></label>
+                            <label for="due_date"
+                                >Date d'echeance<span class="optional"
+                                    >(optionnel)</span
+                                ></label
+                            >
                             <input type="date" name="due_date" id="due_date" />
-                            <div class="field-error" data-field="due_date"></div>
+                            <div
+                                class="field-error"
+                                data-field="due_date"
+                            ></div>
                         </div>
                     </div>
 
                     <div class="field-row">
                         <div class="field-group">
-                            <label for="buyer_reference">Reference acheteur<span class="optional">(optionnel)</span></label>
+                            <label for="buyer_reference"
+                                >Reference acheteur<span class="optional"
+                                    >(optionnel)</span
+                                ></label
+                            >
                             <input
                                 type="text"
                                 name="buyer_reference"
@@ -287,7 +356,11 @@
                             />
                         </div>
                         <div class="field-group">
-                            <label for="purchase_order_reference">Bon de commande<span class="optional">(optionnel)</span></label>
+                            <label for="purchase_order_reference"
+                                >Bon de commande<span class="optional"
+                                    >(optionnel)</span
+                                ></label
+                            >
                             <input
                                 type="text"
                                 name="purchase_order_reference"
@@ -298,7 +371,11 @@
                     </div>
 
                     <div class="field-group full-width">
-                        <label for="payment_terms">Conditions de paiement<span class="optional">(optionnel)</span></label>
+                        <label for="payment_terms"
+                            >Conditions de paiement<span class="optional"
+                                >(optionnel)</span
+                            ></label
+                        >
                         <input
                             type="text"
                             name="payment_terms"
@@ -311,8 +388,12 @@
                 <div class="section">
                     <div class="section-title">Client</div>
 
-                    <div class="field-group" style="margin-bottom: 16px;">
-                        <label for="recipient_name">Raison sociale<span class="required">*</span></label>
+                    <div class="field-group" style="margin-bottom: 16px">
+                        <label for="recipient_name"
+                            >Raison sociale<span class="required"
+                                >*</span
+                            ></label
+                        >
                         <input
                             type="text"
                             name="recipient_name"
@@ -320,12 +401,17 @@
                             placeholder="Entreprise ABC SARL"
                             required
                         />
-                        <div class="field-error" data-field="recipient_name"></div>
+                        <div
+                            class="field-error"
+                            data-field="recipient_name"
+                        ></div>
                     </div>
 
                     <div class="field-row">
                         <div class="field-group">
-                            <label for="recipient_siret">SIRET<span class="required">*</span></label>
+                            <label for="recipient_siret"
+                                >SIRET<span class="required">*</span></label
+                            >
                             <input
                                 type="text"
                                 name="recipient_siret"
@@ -334,10 +420,17 @@
                                 required
                                 maxlength="14"
                             />
-                            <div class="field-error" data-field="recipient_siret"></div>
+                            <div
+                                class="field-error"
+                                data-field="recipient_siret"
+                            ></div>
                         </div>
                         <div class="field-group">
-                            <label for="recipient_vat_number">TVA intracommunautaire<span class="optional">(optionnel)</span></label>
+                            <label for="recipient_vat_number"
+                                >TVA intracommunautaire<span class="optional"
+                                    >(optionnel)</span
+                                ></label
+                            >
                             <input
                                 type="text"
                                 name="recipient_vat_number"
@@ -349,7 +442,11 @@
 
                     <div class="field-row">
                         <div class="field-group">
-                            <label for="recipient_address">Adresse<span class="optional">(optionnel)</span></label>
+                            <label for="recipient_address"
+                                >Adresse<span class="optional"
+                                    >(optionnel)</span
+                                ></label
+                            >
                             <input
                                 type="text"
                                 name="recipient_address"
@@ -358,8 +455,14 @@
                             />
                         </div>
                         <div class="field-group">
-                            <label for="recipient_country_code">Pays<span class="required">*</span></label>
-                            <select name="recipient_country_code" id="recipient_country_code" required>
+                            <label for="recipient_country_code"
+                                >Pays<span class="required">*</span></label
+                            >
+                            <select
+                                name="recipient_country_code"
+                                id="recipient_country_code"
+                                required
+                            >
                                 <option value="FR" selected>France</option>
                                 <option value="BE">Belgique</option>
                                 <option value="CH">Suisse</option>
@@ -369,23 +472,33 @@
                                 <option value="LU">Luxembourg</option>
                                 <option value="GB">Royaume-Uni</option>
                             </select>
-                            <div class="field-error" data-field="recipient_country_code"></div>
+                            <div
+                                class="field-error"
+                                data-field="recipient_country_code"
+                            ></div>
                         </div>
                     </div>
                 </div>
 
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Continuer vers les lignes</button>
+                    <button type="submit" class="btn btn-primary">
+                        Continuer vers les lignes
+                    </button>
                 </div>
             </form>
         </div>
 
         <script>
             function clearErrors() {
-                document.getElementById("errorsContainer").style.display = "none";
+                document.getElementById("errorsContainer").style.display =
+                    "none";
                 document.getElementById("errorsList").innerHTML = "";
-                document.querySelectorAll(".error").forEach((el) => el.classList.remove("error"));
-                document.querySelectorAll(".field-error").forEach((el) => (el.textContent = ""));
+                document
+                    .querySelectorAll(".error")
+                    .forEach((el) => el.classList.remove("error"));
+                document
+                    .querySelectorAll(".field-error")
+                    .forEach((el) => (el.textContent = ""));
             }
 
             function displayErrors(errors) {
@@ -400,14 +513,19 @@
                     li.textContent = error.message;
                     list.appendChild(li);
 
-                    const input = document.querySelector(`[name="${error.field}"]`);
+                    const input = document.querySelector(
+                        `[name="${error.field}"]`,
+                    );
                     if (input) {
                         input.classList.add("error");
                     }
                 });
 
                 container.style.display = "block";
-                container.scrollIntoView({ behavior: "smooth", block: "start" });
+                container.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                });
             }
 
             document.getElementById("invoiceForm").onsubmit = async (e) => {
@@ -433,7 +551,11 @@
                     window.location.href = "/invoice/step2";
                 } catch (error) {
                     displayErrors([
-                        { field: "_form", message: "Erreur de communication: " + error.message }
+                        {
+                            field: "_form",
+                            message:
+                                "Erreur de communication: " + error.message,
+                        },
                     ]);
                 }
             };

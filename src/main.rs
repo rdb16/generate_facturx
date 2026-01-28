@@ -33,10 +33,12 @@ struct EmitterConfig {
 struct InvoiceSession {
     invoice_number: String,
     issue_date: String,
+    issue_date_display: String, // Format DD/MM/YYYY pour affichage
     type_code: u16,
     type_label: String,
     currency_code: String,
     due_date: Option<String>,
+    due_date_display: Option<String>, // Format DD/MM/YYYY pour affichage
     payment_terms: Option<String>,
     buyer_reference: Option<String>,
     purchase_order_reference: Option<String>,
@@ -45,6 +47,17 @@ struct InvoiceSession {
     recipient_vat_number: Option<String>,
     recipient_address: String,
     recipient_country_code: String,
+}
+
+/// Convertit une date YYYY-MM-DD en DD/MM/YYYY
+fn format_date_display(date: &str) -> String {
+    if date.len() == 10 && date.contains('-') {
+        let parts: Vec<&str> = date.split('-').collect();
+        if parts.len() == 3 {
+            return format!("{}/{}/{}", parts[2], parts[1], parts[0]);
+        }
+    }
+    date.to_string()
 }
 
 #[derive(Clone)]
@@ -199,6 +212,10 @@ async fn parse_step1_data(mut multipart: Multipart) -> Result<InvoiceSession, St
             _ => {}
         }
     }
+
+    // Formatage des dates pour affichage (DD/MM/YYYY)
+    data.issue_date_display = format_date_display(&data.issue_date);
+    data.due_date_display = data.due_date.as_ref().map(|d| format_date_display(d));
 
     Ok(data)
 }
