@@ -594,7 +594,9 @@
                                 </button>
                             </div>
                             <div class="discount-row">
-                                <span class="discount-label">Rabais :</span>
+                                <span class="discount-label"
+                                    >Rabais sur la ligne ci-dessus :</span
+                                >
                                 <input
                                     name="lines[0][discount_value]"
                                     type="number"
@@ -680,7 +682,64 @@
             let lineCount = 1;
             const currency = "{{ invoice.currency_code }}";
 
+            function validateExistingLines() {
+                const errors = [];
+                document
+                    .querySelectorAll(".line-wrapper")
+                    .forEach((wrapper, index) => {
+                        const description = wrapper
+                            .querySelector('[name*="description"]')
+                            .value.trim();
+                        const quantity =
+                            wrapper.querySelector('[name*="quantity"]').value;
+                        const unitPrice = wrapper.querySelector(
+                            '[name*="unit_price_ht"]',
+                        ).value;
+
+                        const lineNum = index + 1;
+
+                        if (!description) {
+                            errors.push(
+                                `Ligne ${lineNum} : la description est obligatoire`,
+                            );
+                            wrapper
+                                .querySelector('[name*="description"]')
+                                .classList.add("error");
+                        }
+                        if (!quantity || parseFloat(quantity) <= 0) {
+                            errors.push(
+                                `Ligne ${lineNum} : la quantite doit etre superieure a 0`,
+                            );
+                            wrapper
+                                .querySelector('[name*="quantity"]')
+                                .classList.add("error");
+                        }
+                        if (!unitPrice || parseFloat(unitPrice) <= 0) {
+                            errors.push(
+                                `Ligne ${lineNum} : le prix unitaire doit etre superieur a 0`,
+                            );
+                            wrapper
+                                .querySelector('[name*="unit_price_ht"]')
+                                .classList.add("error");
+                        }
+                    });
+                return errors;
+            }
+
             function addLine() {
+                // Valider les lignes existantes avant d'en ajouter une nouvelle
+                document
+                    .querySelectorAll(".line-wrapper input.error")
+                    .forEach((el) => el.classList.remove("error"));
+                const errors = validateExistingLines();
+                if (errors.length > 0) {
+                    alert(
+                        "Veuillez completer les lignes existantes avant d'en ajouter une nouvelle :\n\n" +
+                            errors.join("\n"),
+                    );
+                    return;
+                }
+
                 const lines = document.getElementById("lines");
                 const newIndex = lineCount++;
 
@@ -723,7 +782,7 @@
                             </button>
                         </div>
                         <div class="discount-row">
-                            <span class="discount-label">Rabais :</span>
+                            <span class="discount-label">Rabais sur la ligne ci-dessus :</span>
                             <input
                                 name="lines[${newIndex}][discount_value]"
                                 type="number"
