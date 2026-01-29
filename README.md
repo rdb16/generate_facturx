@@ -15,6 +15,8 @@ Application web Rust pour generer des factures conformes au standard Factur-X (n
 - Affichage des dates au format francais (JJ/MM/AAAA)
 - Validation des lignes avant ajout (description, quantite, prix obligatoires)
 - Interface moderne et responsive
+- Generation de PDF avec mise en page professionnelle
+- Generation de XML CII (Cross Industry Invoice) conforme Factur-X
 
 ## Prerequis
 
@@ -97,6 +99,12 @@ Le serveur demarre sur http://localhost:3000
    - Tableau des montants HT et TVA par taux (20%, 10%, 5.5%, 0%)
    - Total HT, Total TVA et Total TTC
 6. Cliquez sur "Generer la facture Factur-X"
+7. Le PDF est automatiquement telecharge avec :
+   - En-tete avec informations de l'emetteur
+   - Informations de la facture et du client
+   - Tableau des lignes de facturation
+   - Recapitulatif par taux de TVA
+   - Totaux HT, TVA et TTC
 
 ## Champs Factur-X
 
@@ -135,7 +143,9 @@ Generate-Factur-X/
 │   │   ├── line.rs             # InvoiceLine avec rabais et calculs
 │   │   └── error.rs            # Types d'erreurs de validation
 │   └── facturx/
-│       └── generator.rs        # Generation Factur-X (a implementer)
+│       ├── mod.rs              # Declaration et export des modules
+│       ├── xml_generator.rs    # Generation XML CII Factur-X
+│       └── pdf_generator.rs    # Generation PDF avec mise en page
 └── templates/
     ├── invoice_step1.html      # Page 1 : informations facture et client
     └── invoice_step2.html      # Page 2 : lignes de facturation
@@ -148,7 +158,7 @@ Generate-Factur-X/
 | `/` | GET | Page 1 - Informations |
 | `/invoice/step1` | POST | Validation et sauvegarde etape 1 |
 | `/invoice/step2` | GET | Page 2 - Lignes de facturation |
-| `/invoice` | POST | Generation de la facture |
+| `/invoice` | POST | Generation et telechargement du PDF |
 | `/assets/*` | GET | Fichiers statiques (logos, images) |
 
 ## Stack technique
@@ -158,8 +168,8 @@ Generate-Factur-X/
 - **Tera** - Moteur de templates
 - **Serde** - Serialisation/deserialisation
 - **Chrono** - Gestion des dates
-- **printpdf** - Generation PDF (a venir)
-- **xml-rs** - Generation XML (a venir)
+- **printpdf** - Generation PDF
+- **xml-rs** - Generation XML CII
 
 ## Validation
 
@@ -210,10 +220,31 @@ Avant d'ajouter une nouvelle ligne, le formulaire verifie que toutes les lignes 
 
 Les erreurs sont retournees en JSON et affichees dans l'interface avec mise en evidence des champs en erreur.
 
+## Generation Factur-X
+
+### PDF genere
+
+Le PDF genere contient :
+- **En-tete** : nom de l'entreprise, adresse, SIRET, numero de TVA
+- **Bloc facture** : type de document, numero, dates d'emission et d'echeance
+- **Bloc client** : raison sociale, SIRET, TVA intracommunautaire, adresse, pays
+- **Tableau des lignes** : description, quantite, prix unitaire, taux TVA, montant HT
+- **Recapitulatif TVA** : montants HT et TVA par taux
+- **Totaux** : Total HT, Total TVA, Total TTC
+- **Pied de page** : informations legales
+
+### XML CII genere
+
+Le XML genere est conforme au standard Factur-X profil MINIMUM (CII UN/CEFACT) :
+- Namespace `urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100`
+- Guideline ID : `urn:factur-x.eu:1p0:minimum`
+- Elements obligatoires : vendeur, acheteur, totaux, devise, dates
+- Ventilation TVA par taux
+
 ## A venir
 
-- Generation du PDF avec XML Factur-X embarque
-- Export XML CII (Cross Industry Invoice)
+- Embarquement du XML dans le PDF (PDF/A-3)
+- Metadonnees XMP pour conformite complete Factur-X
 - Validation Schematron
 - Gestion multi-utilisateurs
 - Historique des factures

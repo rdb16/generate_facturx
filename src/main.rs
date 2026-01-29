@@ -1,5 +1,7 @@
+mod facturx;
 mod models;
 
+use axum::body::Body;
 use axum::extract::Multipart;
 use axum::{
     extract::State,
@@ -420,28 +422,49 @@ async fn create_invoice(State(state): State<Arc<AppState>>, multipart: Multipart
 
     // Calcul des totaux
     let mut form = form;
-    let (total_ht, total_vat, total_ttc) = form.compute_totals();
+    let totals = form.compute_totals();
 
-    #[derive(Serialize)]
-    struct SuccessResponse {
-        success: bool,
-        message: String,
-        invoice_number: String,
-        total_ht: f64,
-        total_vat: f64,
-        total_ttc: f64,
-    }
-
-    let response = SuccessResponse {
-        success: true,
-        message: "Facture generee avec succes".to_string(),
-        invoice_number: form.invoice_number,
-        total_ht,
-        total_vat,
-        total_ttc,
+    // Génération du XML Factur-X
+    let xml_content = match facturx::generate_facturx_xml(&form, &state.emitter, totals) {
+        Ok(xml) => xml,
+        Err(e) => {
+            let response = ValidationResponse::with_errors(vec![FieldError::new(
+                "_form",
+                format!("Erreur génération XML: {}", e),
+            )]);
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(response)).into_response();
+        }
     };
 
-    (StatusCode::OK, Json(response)).into_response()
+    // Génération du PDF avec XML embarqué
+    let pdf_bytes = match facturx::generate_invoice_pdf(&form, &state.emitter, totals, &xml_content)
+    {
+        Ok(pdf) => pdf,
+        Err(e) => {
+            let response = ValidationResponse::with_errors(vec![FieldError::new(
+                "_form",
+                format!("Erreur génération PDF: {}", e),
+            )]);
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(response)).into_response();
+        }
+    };
+
+    // Nom du fichier PDF
+    let filename = format!(
+        "facture_{}.pdf",
+        form.invoice_number.replace(['/', '\\', ' '], "_")
+    );
+
+    // Retourner le PDF en téléchargement
+    Response::builder()
+        .status(StatusCode::OK)
+        .header("Content-Type", "application/pdf")
+        .header(
+            "Content-Disposition",
+            format!("attachment; filename=\"{}\"", filename),
+        )
+        .body(Body::from(pdf_bytes))
+        .unwrap()
 }
 
 /// Validation des lignes de facturation
