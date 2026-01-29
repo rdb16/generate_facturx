@@ -39,8 +39,18 @@ siret = "12345678900012"
 name = "Mon Entreprise SARL"
 address = "12 rue de la Paix, 75001 Paris"
 bic = "AGRIFRPP882"
-iban = "FR7612345678901234567890123"
+num_tva = "FR7612345678901234567890123"
+logo = "sntpk-logo.jpeg"
 ```
+
+### Logo de l'emetteur
+
+Le champ `logo` est optionnel. Il permet d'afficher le logo de l'entreprise dans l'en-tete des pages de facturation.
+
+- Si `logo` est defini : l'image correspondante est chargee depuis le dossier `assets/` (exemple : `logo = "mon-logo.png"` affiche `assets/mon-logo.png`)
+- Si `logo` est absent ou vide : l'image par defaut `assets/underwork.jpeg` est affichee
+
+Formats d'image supportes : JPEG, PNG, GIF, SVG.
 
 ## Lancement
 
@@ -113,6 +123,8 @@ L'application implemente les champs obligatoires de la norme Factur-X :
 ```
 Generate-Factur-X/
 ├── cargo.toml                  # Dependances Rust
+├── assets/
+│   └── underwork.jpeg          # Logo par defaut
 ├── config/
 │   └── emitter.toml            # Configuration emetteur
 ├── src/
@@ -137,6 +149,7 @@ Generate-Factur-X/
 | `/invoice/step1` | POST | Validation et sauvegarde etape 1 |
 | `/invoice/step2` | GET | Page 2 - Lignes de facturation |
 | `/invoice` | POST | Generation de la facture |
+| `/assets/*` | GET | Fichiers statiques (logos, images) |
 
 ## Stack technique
 
@@ -150,24 +163,52 @@ Generate-Factur-X/
 
 ## Validation
 
-Le formulaire valide automatiquement :
+Le formulaire valide automatiquement les champs cote serveur (Rust) et cote client (JavaScript).
 
-**Etape 1 :**
-- Numero de facture (obligatoire)
-- Date d'emission (obligatoire, format AAAA-MM-JJ)
-- Type de document (380, 381, 384, 389)
-- Code devise (ISO 4217)
-- Nom du client (obligatoire)
-- SIRET du client (14 chiffres)
-- Code pays (ISO 3166-1 alpha-2)
+### Etape 1 - Informations facture et client
 
-**Etape 2 :**
-- Au moins une ligne de facturation
-- Description non vide par ligne
-- Quantite > 0
-- Prix unitaire HT > 0
+| Champ | Controle | Message d'erreur |
+|-------|----------|------------------|
+| Numero de facture | Non vide | "Le numero de facture est obligatoire" |
+| Date d'emission | Non vide | "La date d'emission est obligatoire" |
+| Nom du client | Non vide | "Le nom du client est obligatoire" |
+| SIRET du client | Non vide | "Le SIRET du client est obligatoire" |
+| SIRET du client | Exactement 14 chiffres | "Le SIRET doit contenir 14 chiffres" |
+| Code pays | Non vide | "Le pays est obligatoire" |
 
-Les erreurs sont retournees en JSON et affichees dans l'interface.
+**Champs avec valeurs par defaut :**
+- Type de document : 380 (Facture)
+- Devise : EUR
+- Code pays : FR
+
+**Champs optionnels (non valides) :**
+- Date d'echeance
+- Reference acheteur
+- Bon de commande
+- Conditions de paiement
+- TVA intracommunautaire
+- Adresse
+
+### Etape 2 - Lignes de facturation
+
+| Champ | Controle | Message d'erreur |
+|-------|----------|------------------|
+| Lignes | Au moins 1 ligne | "La facture doit contenir au moins une ligne" |
+| Description | Non vide | "Ligne X : la description est obligatoire" |
+| Quantite | Superieure a 0 | "Ligne X : la quantite doit etre superieure a 0" |
+| Prix unitaire HT | Superieur a 0 | "Ligne X : le prix unitaire doit etre superieur a 0" |
+
+**Validation avant ajout de ligne (cote client uniquement) :**
+Avant d'ajouter une nouvelle ligne, le formulaire verifie que toutes les lignes existantes sont correctement remplies (description, quantite > 0, prix > 0).
+
+**Champs avec valeurs par defaut :**
+- Taux de TVA : 20%
+- Rabais : aucun
+
+**Champs optionnels (non valides) :**
+- Rabais (valeur et type)
+
+Les erreurs sont retournees en JSON et affichees dans l'interface avec mise en evidence des champs en erreur.
 
 ## A venir
 

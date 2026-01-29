@@ -28,15 +28,23 @@
                 color: white;
                 padding: 24px 30px;
                 display: flex;
-                justify-content: space-between;
                 align-items: center;
+                gap: 20px;
             }
-            .header h1 {
+            .header-logo {
+                width: 50px;
+                height: 50px;
+                object-fit: contain;
+                border-radius: 8px;
+                background: white;
+                padding: 4px;
+            }
+            .header-text h1 {
                 margin: 0;
                 font-size: 22px;
                 font-weight: 600;
             }
-            .header .emitter {
+            .header-text .emitter {
                 opacity: 0.8;
                 font-size: 13px;
             }
@@ -498,7 +506,8 @@
     <body>
         <div class="container">
             <div class="header">
-                <div>
+                <img src="{{ logo_path }}" alt="Logo" class="header-logo" />
+                <div class="header-text">
                     <h1>Nouvelle facture</h1>
                     <div class="emitter">{{ emitter.name }}</div>
                 </div>

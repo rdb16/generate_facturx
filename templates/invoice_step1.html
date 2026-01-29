@@ -27,13 +27,24 @@
                 background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
                 color: white;
                 padding: 30px;
+                display: flex;
+                align-items: center;
+                gap: 20px;
             }
-            .header h1 {
+            .header-logo {
+                width: 60px;
+                height: 60px;
+                object-fit: contain;
+                border-radius: 8px;
+                background: white;
+                padding: 4px;
+            }
+            .header-text h1 {
                 margin: 0 0 10px 0;
                 font-size: 24px;
                 font-weight: 600;
             }
-            .header .emitter {
+            .header-text .emitter {
                 opacity: 0.8;
                 font-size: 14px;
             }
@@ -206,9 +217,12 @@
     <body>
         <div class="container">
             <div class="header">
-                <h1>Nouvelle facture</h1>
-                <div class="emitter">
-                    {{ emitter.name }} - SIRET : {{ emitter.siret }}
+                <img src="{{ logo_path }}" alt="Logo" class="header-logo" />
+                <div class="header-text">
+                    <h1>Nouvelle facture</h1>
+                    <div class="emitter">
+                        {{ emitter.name }} - SIRET : {{ emitter.siret }}
+                    </div>
                 </div>
             </div>
 

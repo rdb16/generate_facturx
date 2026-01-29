@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use tera::{Context, Tera};
+use tower_http::services::ServeDir;
 
 use models::error::{FieldError, ValidationResponse};
 use models::invoice::{InvoiceForm, InvoiceTypeCode};
@@ -25,7 +26,16 @@ struct EmitterConfig {
     name: String,
     address: String,
     bic: Option<String>,
-    iban: Option<String>,
+    num_tva: Option<String>,
+    logo: Option<String>,
+}
+
+/// Retourne le chemin du logo à utiliser (logo configuré ou image par défaut)
+fn get_logo_path(emitter: &EmitterConfig) -> String {
+    match &emitter.logo {
+        Some(logo) if !logo.trim().is_empty() => format!("/assets/{}", logo),
+        _ => "/assets/underwork.jpeg".to_string(),
+    }
 }
 
 // Données de session pour l'étape 1
@@ -85,6 +95,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/invoice/step1", post(step1_submit))
         .route("/invoice/step2", get(step2_page))
         .route("/invoice", post(create_invoice))
+        .nest_service("/assets", ServeDir::new("assets"))
         .with_state(app_state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
@@ -97,6 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 async fn step1_page(State(state): State<Arc<AppState>>) -> Html<String> {
     let mut context = Context::new();
     context.insert("emitter", &state.emitter);
+    context.insert("logo_path", &get_logo_path(&state.emitter));
     Html(state.tera.render("invoice_step1.html", &context).unwrap())
 }
 
@@ -143,6 +155,7 @@ async fn step2_page(State(state): State<Arc<AppState>>) -> Response {
             let mut context = Context::new();
             context.insert("emitter", &state.emitter);
             context.insert("invoice", invoice_data);
+            context.insert("logo_path", &get_logo_path(&state.emitter));
             Html(state.tera.render("invoice_step2.html", &context).unwrap()).into_response()
         }
         None => Redirect::to("/").into_response(),
