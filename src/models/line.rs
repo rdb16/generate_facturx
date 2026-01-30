@@ -1,23 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-use super::error::LineValidationResult;
-
-/// Type de rabais
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
-pub enum DiscountType {
-    #[serde(rename = "percent")]
-    Percent,
-    #[serde(rename = "amount")]
-    Amount,
-}
-
-impl Default for DiscountType {
-    fn default() -> Self {
-        DiscountType::Percent
-    }
-}
-
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct InvoiceLine {
     pub description: String,
@@ -105,36 +88,6 @@ impl InvoiceLine {
             && self.quantity > 0.0
             && self.unit_price_ht > 0.0
             && self.vat_rate >= 0.0
-    }
-
-    /// Validation détaillée avec messages d'erreur par champ
-    pub fn validate(&self, line_index: usize) -> LineValidationResult {
-        let mut result = LineValidationResult::new(line_index);
-
-        if self.description.trim().is_empty() {
-            result.add_error("description", "La description est obligatoire");
-        }
-
-        if self.quantity <= 0.0 {
-            result.add_error("quantity", "La quantité doit être supérieure à 0");
-        }
-
-        if self.unit_price_ht <= 0.0 {
-            result.add_error(
-                "unit_price_ht",
-                "Le prix unitaire HT doit être supérieur à 0",
-            );
-        }
-
-        if self.vat_rate < 0.0 {
-            result.add_error("vat_rate", "Le taux de TVA ne peut pas être négatif");
-        }
-
-        if self.vat_rate > 100.0 {
-            result.add_error("vat_rate", "Le taux de TVA ne peut pas dépasser 100%");
-        }
-
-        result
     }
 }
 
