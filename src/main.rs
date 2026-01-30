@@ -32,11 +32,33 @@ struct EmitterConfig {
     logo: Option<String>,
 }
 
-/// Retourne le chemin du logo à utiliser (logo configuré ou image par défaut)
+/// Retourne le chemin URL du logo pour les templates HTML
+/// Transforme un chemin relatif (./assets/logo.jpeg) en URL web (/assets/logo.jpeg)
 fn get_logo_path(emitter: &EmitterConfig) -> String {
     match &emitter.logo {
-        Some(logo) if !logo.trim().is_empty() => format!("/assets/{}", logo),
+        Some(logo) if !logo.trim().is_empty() => {
+            // Convertir chemin fichier en URL: ./assets/x -> /assets/x, assets/x -> /assets/x
+            let path = logo.trim_start_matches("./");
+            if path.starts_with('/') {
+                path.to_string()
+            } else {
+                format!("/{}", path)
+            }
+        }
         _ => "/assets/underwork.jpeg".to_string(),
+    }
+}
+
+/// Retourne le chemin fichier du logo pour la génération PDF
+/// Garde le chemin relatif à la racine du projet
+fn get_logo_file_path(emitter: &EmitterConfig) -> Option<String> {
+    match &emitter.logo {
+        Some(logo) if !logo.trim().is_empty() => {
+            // Nettoyer le chemin: ./assets/x -> assets/x
+            let path = logo.trim_start_matches("./");
+            Some(path.to_string())
+        }
+        _ => None,
     }
 }
 
@@ -436,9 +458,18 @@ async fn create_invoice(State(state): State<Arc<AppState>>, multipart: Multipart
         }
     };
 
+    // Chemin du logo pour le PDF (chemin fichier relatif à la racine du projet)
+    let logo_file_path = get_logo_file_path(&state.emitter);
+    let logo_path_ref = logo_file_path.as_deref();
+
     // Génération du PDF avec XML embarqué
-    let pdf_bytes = match facturx::generate_invoice_pdf(&form, &state.emitter, totals, &xml_content)
-    {
+    let pdf_bytes = match facturx::generate_invoice_pdf(
+        &form,
+        &state.emitter,
+        totals,
+        &xml_content,
+        logo_path_ref,
+    ) {
         Ok(pdf) => pdf,
         Err(e) => {
             let response = ValidationResponse::with_errors(vec![FieldError::new(

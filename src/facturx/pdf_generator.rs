@@ -8,6 +8,7 @@ use crate::models::invoice::InvoiceForm;
 use crate::EmitterConfig;
 use printpdf::*;
 use std::collections::HashMap;
+use std::path::Path;
 
 /// Constantes de mise en page (en mm)
 const PAGE_WIDTH_MM: f32 = 210.0;
@@ -20,6 +21,7 @@ const FONT_SIZE_HEADER: f32 = 12.0;
 const FONT_SIZE_NORMAL: f32 = 10.0;
 const FONT_SIZE_SMALL: f32 = 8.0;
 const LINE_HEIGHT: f32 = 5.0;
+const LOGO_HEIGHT_MM: f32 = 15.0; // Hauteur du logo en mm
 
 /// Génère le PDF de la facture avec le XML Factur-X embarqué
 pub fn generate_invoice_pdf(
@@ -27,12 +29,32 @@ pub fn generate_invoice_pdf(
     emitter: &EmitterConfig,
     totals: (f64, f64, f64),
     _xml_content: &str,
+    logo_path: Option<&str>,
 ) -> Result<Vec<u8>, String> {
     let (total_ht, total_vat, total_ttc) = totals;
 
     let mut doc = PdfDocument::new(&format!("Facture {}", invoice.invoice_number));
     let mut ops: Vec<Op> = Vec::new();
     let mut y_pos = PAGE_HEIGHT_MM - MARGIN_TOP;
+
+    // === LOGO (si disponible) ===
+    if let Some(path) = logo_path {
+        if let Some(image_id) = load_logo(&mut doc, path) {
+            // Ajouter le logo en haut à gauche
+            ops.push(Op::UseXobject {
+                id: image_id,
+                transform: XObjectTransform {
+                    translate_x: Some(Pt(mm_to_pt(MARGIN_LEFT))),
+                    translate_y: Some(Pt(mm_to_pt(y_pos - LOGO_HEIGHT_MM))),
+                    scale_x: Some(0.15),
+                    scale_y: Some(0.15),
+                    dpi: Some(300.0),
+                    rotate: None,
+                },
+            });
+            y_pos -= LOGO_HEIGHT_MM + 3.0;
+        }
+    }
 
     // === EN-TÊTE : Émetteur ===
     add_text(
@@ -523,4 +545,26 @@ fn calculate_vat_breakdown(invoice: &InvoiceForm) -> HashMap<String, (f64, f64)>
     }
 
     vat_by_rate
+}
+
+/// Charge le logo depuis le chemin spécifié et l'ajoute au document PDF
+fn load_logo(doc: &mut PdfDocument, path: &str) -> Option<XObjectId> {
+    // Construire le chemin complet vers le fichier logo
+    let logo_path = Path::new(path);
+
+    // Lire le fichier image
+    let image_bytes = match std::fs::read(logo_path) {
+        Ok(bytes) => bytes,
+        Err(_) => return None,
+    };
+
+    // Décoder l'image avec printpdf
+    let mut warnings: Vec<PdfWarnMsg> = Vec::new();
+    let raw_image = match RawImage::decode_from_bytes(&image_bytes, &mut warnings) {
+        Ok(img) => img,
+        Err(_) => return None,
+    };
+
+    // Ajouter l'image au document et retourner son ID
+    Some(doc.add_image(&raw_image))
 }

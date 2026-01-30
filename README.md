@@ -41,18 +41,21 @@ siret = "12345678900012"
 name = "Mon Entreprise SARL"
 address = "12 rue de la Paix, 75001 Paris"
 bic = "AGRIFRPP882"
-num_tva = "FR7612345678901234567890123"
-logo = "sntpk-logo.jpeg"
+num_tva = "FR12345678901"
+logo = "./assets/sntpk-logo.jpeg"
 ```
 
 ### Logo de l'emetteur
 
-Le champ `logo` est optionnel. Il permet d'afficher le logo de l'entreprise dans l'en-tete des pages de facturation.
+Le champ `logo` est optionnel. Il permet d'afficher le logo de l'entreprise :
+- Dans l'en-tete des pages web de facturation
+- En haut du PDF genere, avant le nom de l'entreprise
 
-- Si `logo` est defini : l'image correspondante est chargee depuis le dossier `assets/` (exemple : `logo = "mon-logo.png"` affiche `assets/mon-logo.png`)
-- Si `logo` est absent ou vide : l'image par defaut `assets/underwork.jpeg` est affichee
+Le chemin est relatif a la racine du projet :
+- Exemple : `logo = "./assets/mon-logo.jpeg"` charge le fichier `assets/mon-logo.jpeg`
+- Si `logo` est absent ou vide : l'image par defaut `assets/underwork.jpeg` est affichee dans les pages web (pas de logo dans le PDF)
 
-Formats d'image supportes : JPEG, PNG, GIF, SVG.
+Format d'image supporte pour le PDF : JPEG.
 
 ## Lancement
 
@@ -225,6 +228,7 @@ Les erreurs sont retournees en JSON et affichees dans l'interface avec mise en e
 ### PDF genere
 
 Le PDF genere contient :
+- **Logo** : logo de l'entreprise (si configure dans emitter.toml)
 - **En-tete** : nom de l'entreprise, adresse, SIRET, numero de TVA
 - **Bloc facture** : type de document, numero, dates d'emission et d'echeance
 - **Bloc client** : raison sociale, SIRET, TVA intracommunautaire, adresse, pays
