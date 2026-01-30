@@ -17,6 +17,9 @@ Application web Rust pour generer des factures conformes au standard Factur-X (n
 - Interface moderne et responsive
 - Generation de PDF avec mise en page professionnelle
 - Generation de XML CII (Cross Industry Invoice) conforme Factur-X
+- Embarquement automatique du XML dans le PDF (PDF/A-3)
+- Sauvegarde automatique des fichiers XML et PDF (configurable)
+- Verification d'unicite du numero de facture (conformite decret)
 
 ## Prerequis
 
@@ -43,6 +46,8 @@ address = "12 rue de la Paix, 75001 Paris"
 bic = "AGRIFRPP882"
 num_tva = "FR12345678901"
 logo = "./assets/sntpk-logo.jpeg"
+xml_storage = "./data/factures-xml"
+pdf_storage = "./data/factures-pdf"
 ```
 
 ### Logo de l'emetteur
@@ -56,6 +61,20 @@ Le chemin est relatif a la racine du projet :
 - Si `logo` est absent ou vide : l'image par defaut `assets/underwork.jpeg` est affichee dans les pages web (pas de logo dans le PDF)
 
 Format d'image supporte pour le PDF : JPEG.
+
+### Stockage des factures
+
+Les champs `xml_storage` et `pdf_storage` permettent de configurer les repertoires de sauvegarde automatique des factures generees :
+
+```toml
+xml_storage = "./data/factures-xml"
+pdf_storage = "./data/factures-pdf"
+```
+
+- Les repertoires sont crees automatiquement s'ils n'existent pas
+- Les fichiers sont nommes `{numero_facture}.xml` et `{numero_facture}.pdf`
+- **Unicite garantie** : si un fichier existe deja avec le meme numero de facture, une erreur est retournee (conformite au decret sur la numerotation unique des factures)
+- Si ces champs sont absents ou vides, les fichiers ne sont pas sauvegardes (seul le telechargement est propose)
 
 ## Lancement
 
@@ -172,6 +191,7 @@ Generate-Factur-X/
 - **Serde** - Serialisation/deserialisation
 - **Chrono** - Gestion des dates
 - **printpdf** - Generation PDF
+- **lopdf** - Manipulation PDF (embarquement XML)
 - **xml-rs** - Generation XML CII
 
 ## Validation
@@ -245,10 +265,19 @@ Le XML genere est conforme au standard Factur-X profil MINIMUM (CII UN/CEFACT) :
 - Elements obligatoires : vendeur, acheteur, totaux, devise, dates
 - Ventilation TVA par taux
 
+### Embarquement XML (PDF/A-3)
+
+Le XML Factur-X est automatiquement embarque dans le PDF selon la specification PDF/A-3 :
+- Fichier attache nomme `factur-x.xml`
+- Type MIME : `text/xml`
+- AFRelationship : `Data` (conforme au profil MINIMUM)
+- Structure conforme : EmbeddedFiles, FileSpec, AF array dans le catalog
+
+Cela permet aux logiciels compatibles Factur-X d'extraire automatiquement les donnees structurees de la facture.
+
 ## A venir
 
-- Embarquement du XML dans le PDF (PDF/A-3)
-- Metadonnees XMP pour conformite complete Factur-X
+- Metadonnees XMP pour conformite complete PDF/A-3
 - Validation Schematron
 - Gestion multi-utilisateurs
 - Historique des factures
