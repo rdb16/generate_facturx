@@ -2,10 +2,11 @@
 //!
 //! Génère un document PDF contenant :
 //! - Le rendu visuel de la facture
-//! - Le XML Factur-X en pièce jointe
+//! - Le XML Factur-X en pièce jointe (PDF/A-3)
 
 use crate::models::invoice::InvoiceForm;
 use crate::EmitterConfig;
+use lopdf::{dictionary, Object, Stream};
 use printpdf::*;
 use std::collections::HashMap;
 use std::path::Path;
@@ -28,7 +29,7 @@ pub fn generate_invoice_pdf(
     invoice: &InvoiceForm,
     emitter: &EmitterConfig,
     totals: (f64, f64, f64),
-    _xml_content: &str,
+    xml_content: &str,
     logo_path: Option<&str>,
 ) -> Result<Vec<u8>, String> {
     let (total_ht, total_vat, total_ttc) = totals;
@@ -465,12 +466,15 @@ pub fn generate_invoice_pdf(
     let page = PdfPage::new(Mm(PAGE_WIDTH_MM), Mm(PAGE_HEIGHT_MM), ops);
     doc.pages.push(page);
 
-    // Sauvegarder
+    // Sauvegarder le PDF de base
     let opts = PdfSaveOptions::default();
     let mut warnings: Vec<PdfWarnMsg> = Vec::new();
     let pdf_bytes = doc.save(&opts, &mut warnings);
 
-    Ok(pdf_bytes)
+    // Embarquer le XML Factur-X dans le PDF
+    let pdf_with_xml = embed_facturx_xml(&pdf_bytes, xml_content)?;
+
+    Ok(pdf_with_xml)
 }
 
 /// Ajoute du texte aux opérations PDF
@@ -581,4 +585,86 @@ fn load_logo(doc: &mut PdfDocument, path: &str) -> Option<(XObjectId, usize, usi
 
     // Ajouter l'image au document et retourner son ID avec dimensions
     Some((doc.add_image(&raw_image), width, height))
+}
+
+/// Embarque le XML Factur-X dans le PDF selon la spécification PDF/A-3
+///
+/// Structure requise :
+/// 1. EmbeddedFile stream contenant le XML
+/// 2. FileSpec dictionary décrivant le fichier
+/// 3. Names dictionary avec EmbeddedFiles name tree
+/// 4. AF array dans le catalog pour PDF/A-3
+fn embed_facturx_xml(pdf_bytes: &[u8], xml_content: &str) -> Result<Vec<u8>, String> {
+    // Charger le PDF avec lopdf
+    let mut doc = lopdf::Document::load_mem(pdf_bytes)
+        .map_err(|e| format!("Erreur chargement PDF: {}", e))?;
+
+    // 1. Créer le stream EmbeddedFile avec le contenu XML
+    let xml_bytes = xml_content.as_bytes().to_vec();
+    let embedded_file_stream = Stream::new(
+        dictionary! {
+            "Type" => "EmbeddedFile",
+            "Subtype" => Object::Name("text/xml".into()),
+            "Params" => dictionary! {
+                "Size" => Object::Integer(xml_bytes.len() as i64),
+            },
+        },
+        xml_bytes,
+    );
+    let embedded_file_id = doc.add_object(embedded_file_stream);
+
+    // 2. Créer le FileSpec dictionary
+    let file_spec = dictionary! {
+        "Type" => "Filespec",
+        "F" => Object::String("factur-x.xml".into(), lopdf::StringFormat::Literal),
+        "UF" => Object::String("factur-x.xml".into(), lopdf::StringFormat::Literal),
+        "Desc" => Object::String("Factur-X XML invoice".into(), lopdf::StringFormat::Literal),
+        "AFRelationship" => "Data",
+        "EF" => dictionary! {
+            "F" => Object::Reference(embedded_file_id),
+            "UF" => Object::Reference(embedded_file_id),
+        },
+    };
+    let file_spec_id = doc.add_object(file_spec);
+
+    // 3. Créer le Names tree pour EmbeddedFiles
+    let names_array = Object::Array(vec![
+        Object::String("factur-x.xml".into(), lopdf::StringFormat::Literal),
+        Object::Reference(file_spec_id),
+    ]);
+    let embedded_files_dict = dictionary! {
+        "Names" => names_array,
+    };
+    let embedded_files_id = doc.add_object(embedded_files_dict);
+
+    // 4. Créer ou mettre à jour le dictionnaire Names dans le Catalog
+    let names_dict = dictionary! {
+        "EmbeddedFiles" => Object::Reference(embedded_files_id),
+    };
+    let names_dict_id = doc.add_object(names_dict);
+
+    // 5. Mettre à jour le Catalog avec Names et AF
+    let catalog_id = doc
+        .trailer
+        .get(b"Root")
+        .ok()
+        .and_then(|r| r.as_reference().ok())
+        .ok_or("Catalog non trouvé")?;
+
+    if let Ok(catalog) = doc.get_object_mut(catalog_id) {
+        if let Object::Dictionary(ref mut dict) = catalog {
+            // Ajouter le dictionnaire Names
+            dict.set("Names", Object::Reference(names_dict_id));
+
+            // Ajouter l'array AF (Associated Files) pour PDF/A-3
+            dict.set("AF", Object::Array(vec![Object::Reference(file_spec_id)]));
+        }
+    }
+
+    // Sauvegarder le PDF modifié
+    let mut output = Vec::new();
+    doc.save_to(&mut output)
+        .map_err(|e| format!("Erreur sauvegarde PDF: {}", e))?;
+
+    Ok(output)
 }
