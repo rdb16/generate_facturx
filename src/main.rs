@@ -30,6 +30,8 @@ struct EmitterConfig {
     bic: Option<String>,
     num_tva: Option<String>,
     logo: Option<String>,
+    xml_storage: Option<String>,
+    pdf_storage: Option<String>,
 }
 
 /// Retourne le chemin URL du logo pour les templates HTML
@@ -60,6 +62,47 @@ fn get_logo_file_path(emitter: &EmitterConfig) -> Option<String> {
         }
         _ => None,
     }
+}
+
+/// Nettoie un chemin de stockage (supprime ./ au début)
+fn clean_storage_path(path: &str) -> String {
+    path.trim_start_matches("./").to_string()
+}
+
+/// Sauvegarde un fichier dans le répertoire spécifié
+/// Retourne une erreur si le fichier existe déjà (numéro de facture dupliqué)
+fn save_invoice_file(
+    storage_path: &str,
+    invoice_number: &str,
+    extension: &str,
+    content: &[u8],
+) -> Result<(), String> {
+    let dir_path = std::path::Path::new(storage_path);
+
+    // Créer le répertoire si nécessaire
+    if !dir_path.exists() {
+        std::fs::create_dir_all(dir_path)
+            .map_err(|e| format!("Impossible de créer le répertoire {}: {}", storage_path, e))?;
+    }
+
+    // Nettoyer le numéro de facture pour le nom de fichier
+    let safe_filename = invoice_number.replace(['/', '\\', ' ', ':'], "_");
+    let filename = format!("{}.{}", safe_filename, extension);
+    let file_path = dir_path.join(&filename);
+
+    // Vérifier si le fichier existe déjà
+    if file_path.exists() {
+        return Err(format!(
+            "Une facture avec le numéro '{}' existe déjà. Le numéro de facture doit être unique.",
+            invoice_number
+        ));
+    }
+
+    // Sauvegarder le fichier
+    std::fs::write(&file_path, content)
+        .map_err(|e| format!("Impossible de sauvegarder {}: {}", file_path.display(), e))?;
+
+    Ok(())
 }
 
 // Données de session pour l'étape 1
@@ -479,6 +522,31 @@ async fn create_invoice(State(state): State<Arc<AppState>>, multipart: Multipart
             return (StatusCode::INTERNAL_SERVER_ERROR, Json(response)).into_response();
         }
     };
+
+    // Sauvegarde du XML si le chemin est configuré
+    if let Some(ref xml_storage) = state.emitter.xml_storage {
+        let xml_path = clean_storage_path(xml_storage);
+        if let Err(e) = save_invoice_file(
+            &xml_path,
+            &form.invoice_number,
+            "xml",
+            xml_content.as_bytes(),
+        ) {
+            let response =
+                ValidationResponse::with_errors(vec![FieldError::new("invoice_number", e)]);
+            return (StatusCode::CONFLICT, Json(response)).into_response();
+        }
+    }
+
+    // Sauvegarde du PDF si le chemin est configuré
+    if let Some(ref pdf_storage) = state.emitter.pdf_storage {
+        let pdf_path = clean_storage_path(pdf_storage);
+        if let Err(e) = save_invoice_file(&pdf_path, &form.invoice_number, "pdf", &pdf_bytes) {
+            let response =
+                ValidationResponse::with_errors(vec![FieldError::new("invoice_number", e)]);
+            return (StatusCode::CONFLICT, Json(response)).into_response();
+        }
+    }
 
     // Nom du fichier PDF
     let filename = format!(
