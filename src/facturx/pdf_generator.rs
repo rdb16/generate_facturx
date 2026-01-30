@@ -37,22 +37,31 @@ pub fn generate_invoice_pdf(
     let mut ops: Vec<Op> = Vec::new();
     let mut y_pos = PAGE_HEIGHT_MM - MARGIN_TOP;
 
-    // === LOGO (si disponible) ===
+    // === LOGO (si disponible, centré en haut de page) ===
     if let Some(path) = logo_path {
-        if let Some(image_id) = load_logo(&mut doc, path) {
-            // Ajouter le logo en haut à gauche
+        if let Some((image_id, img_width, img_height)) = load_logo(&mut doc, path) {
+            // Calculer l'échelle pour que le logo ait la hauteur souhaitée
+            let dpi = 300.0_f32;
+            let scale = LOGO_HEIGHT_MM / (img_height as f32 / dpi * 25.4);
+
+            // Calculer la largeur du logo après mise à l'échelle
+            let logo_width_mm = (img_width as f32 / dpi * 25.4) * scale;
+
+            // Centrer le logo horizontalement
+            let logo_x = (PAGE_WIDTH_MM - logo_width_mm) / 2.0;
+
             ops.push(Op::UseXobject {
                 id: image_id,
                 transform: XObjectTransform {
-                    translate_x: Some(Pt(mm_to_pt(MARGIN_LEFT))),
+                    translate_x: Some(Pt(mm_to_pt(logo_x))),
                     translate_y: Some(Pt(mm_to_pt(y_pos - LOGO_HEIGHT_MM))),
-                    scale_x: Some(0.15),
-                    scale_y: Some(0.15),
-                    dpi: Some(300.0),
+                    scale_x: Some(scale),
+                    scale_y: Some(scale),
+                    dpi: Some(dpi),
                     rotate: None,
                 },
             });
-            y_pos -= LOGO_HEIGHT_MM + 3.0;
+            y_pos -= LOGO_HEIGHT_MM + 5.0;
         }
     }
 
@@ -548,7 +557,8 @@ fn calculate_vat_breakdown(invoice: &InvoiceForm) -> HashMap<String, (f64, f64)>
 }
 
 /// Charge le logo depuis le chemin spécifié et l'ajoute au document PDF
-fn load_logo(doc: &mut PdfDocument, path: &str) -> Option<XObjectId> {
+/// Retourne l'ID de l'image et ses dimensions (largeur, hauteur) en pixels
+fn load_logo(doc: &mut PdfDocument, path: &str) -> Option<(XObjectId, usize, usize)> {
     // Construire le chemin complet vers le fichier logo
     let logo_path = Path::new(path);
 
@@ -565,6 +575,10 @@ fn load_logo(doc: &mut PdfDocument, path: &str) -> Option<XObjectId> {
         Err(_) => return None,
     };
 
-    // Ajouter l'image au document et retourner son ID
-    Some(doc.add_image(&raw_image))
+    // Récupérer les dimensions
+    let width = raw_image.width;
+    let height = raw_image.height;
+
+    // Ajouter l'image au document et retourner son ID avec dimensions
+    Some((doc.add_image(&raw_image), width, height))
 }
