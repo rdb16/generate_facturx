@@ -1,5 +1,5 @@
 -- Création de la base de données K_Factur_x (si nécessaire)
--- CREATE DATABASE "K_Factur_x";
+-- CREATE DATABASE "k_factur_x";
 
 -- Table des factures envoyées
 CREATE TABLE IF NOT EXISTS sent_invoices (
@@ -26,5 +26,5 @@ COMMENT ON COLUMN sent_invoices.company_siret IS 'SIRET de la société facturé
 COMMENT ON COLUMN sent_invoices.xml_facture IS 'Contenu XML Factur-X embarqué dans le PDF';
 COMMENT ON COLUMN sent_invoices.pdf_path IS 'Chemin de stockage du fichier PDF';
 COMMENT ON COLUMN sent_invoices.invoice_date IS 'Date de facturation';
-COMMENT ON COLUMN sent_invoices.created_at IS 'Date de création de l''enregistrement';
+COMMENT ON COLUMN sent_invoices.created_at IS "Date de création de l'enregistrement";
 COMMENT ON COLUMN sent_invoices.validated_at IS 'Date de validation du XML contre le schéma Factur-X (NULL si non validé)';
