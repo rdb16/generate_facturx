@@ -4,6 +4,9 @@
 //! - Le rendu visuel de la facture
 //! - Le XML Factur-X en pièce jointe (PDF/A-3)
 
+use crate::facturx::xmp_metadata::{
+    generate_xmp_metadata, validate_xmp_metadata, FacturXProfile, XmpMetadata,
+};
 use crate::models::invoice::InvoiceForm;
 use crate::EmitterConfig;
 use lopdf::{dictionary, Object, Stream};
@@ -33,6 +36,46 @@ pub fn generate_invoice_pdf(
     logo_path: Option<&str>,
 ) -> Result<Vec<u8>, String> {
     let (total_ht, total_vat, total_ttc) = totals;
+
+    // === VALIDATION DES MÉTADONNÉES XMP AVANT CRÉATION DU PDF ===
+    let invoice_type_label = match invoice.type_code {
+        380 => "Facture",
+        381 => "Avoir",
+        384 => "Facture rectificative",
+        389 => "Facture d'acompte",
+        _ => "Facture",
+    };
+
+    let xmp_metadata = XmpMetadata {
+        title: format!("{} {}", invoice_type_label, invoice.invoice_number),
+        author: emitter.name.clone(),
+        subject: format!(
+            "{} Factur-X pour {}",
+            invoice_type_label, invoice.recipient_name
+        ),
+        profile: FacturXProfile::Minimum,
+        xml_filename: "factur-x.xml".to_string(),
+        facturx_version: "1.0".to_string(),
+    };
+
+    // Valider les métadonnées XMP
+    let validation_result = validate_xmp_metadata(&xmp_metadata);
+    if !validation_result.is_valid {
+        let error_messages: Vec<String> = validation_result
+            .errors
+            .iter()
+            .map(|e| format!("{}: {}", e.field, e.message))
+            .collect();
+        return Err(format!(
+            "Validation des métadonnées XMP échouée: {}",
+            error_messages.join("; ")
+        ));
+    }
+
+    // Afficher les avertissements (non bloquants)
+    for warning in &validation_result.warnings {
+        eprintln!("Avertissement XMP: {}", warning);
+    }
 
     let mut doc = PdfDocument::new(&format!("Facture {}", invoice.invoice_number));
     let mut ops: Vec<Op> = Vec::new();
@@ -471,8 +514,11 @@ pub fn generate_invoice_pdf(
     let mut warnings: Vec<PdfWarnMsg> = Vec::new();
     let pdf_bytes = doc.save(&opts, &mut warnings);
 
-    // Embarquer le XML Factur-X dans le PDF
-    let pdf_with_xml = embed_facturx_xml(&pdf_bytes, xml_content)?;
+    // Générer les métadonnées XMP
+    let xmp_content = generate_xmp_metadata(&xmp_metadata)?;
+
+    // Embarquer le XML Factur-X et les métadonnées XMP dans le PDF
+    let pdf_with_xml = embed_facturx_xml(&pdf_bytes, xml_content, &xmp_content)?;
 
     Ok(pdf_with_xml)
 }
@@ -587,14 +633,19 @@ fn load_logo(doc: &mut PdfDocument, path: &str) -> Option<(XObjectId, usize, usi
     Some((doc.add_image(&raw_image), width, height))
 }
 
-/// Embarque le XML Factur-X dans le PDF selon la spécification PDF/A-3
+/// Embarque le XML Factur-X et les métadonnées XMP dans le PDF selon la spécification PDF/A-3
 ///
 /// Structure requise :
 /// 1. EmbeddedFile stream contenant le XML
 /// 2. FileSpec dictionary décrivant le fichier
 /// 3. Names dictionary avec EmbeddedFiles name tree
 /// 4. AF array dans le catalog pour PDF/A-3
-fn embed_facturx_xml(pdf_bytes: &[u8], xml_content: &str) -> Result<Vec<u8>, String> {
+/// 5. Metadata stream XMP dans le catalog
+fn embed_facturx_xml(
+    pdf_bytes: &[u8],
+    xml_content: &str,
+    xmp_content: &str,
+) -> Result<Vec<u8>, String> {
     // Charger le PDF avec lopdf
     let mut doc = lopdf::Document::load_mem(pdf_bytes)
         .map_err(|e| format!("Erreur chargement PDF: {}", e))?;
@@ -643,7 +694,18 @@ fn embed_facturx_xml(pdf_bytes: &[u8], xml_content: &str) -> Result<Vec<u8>, Str
     };
     let names_dict_id = doc.add_object(names_dict);
 
-    // 5. Mettre à jour le Catalog avec Names et AF
+    // 5. Créer le stream Metadata XMP
+    let xmp_bytes = xmp_content.as_bytes().to_vec();
+    let metadata_stream = Stream::new(
+        dictionary! {
+            "Type" => "Metadata",
+            "Subtype" => Object::Name("XML".into()),
+        },
+        xmp_bytes,
+    );
+    let metadata_id = doc.add_object(metadata_stream);
+
+    // 6. Mettre à jour le Catalog avec Names, AF et Metadata
     let catalog_id = doc
         .trailer
         .get(b"Root")
@@ -658,6 +720,9 @@ fn embed_facturx_xml(pdf_bytes: &[u8], xml_content: &str) -> Result<Vec<u8>, Str
 
             // Ajouter l'array AF (Associated Files) pour PDF/A-3
             dict.set("AF", Object::Array(vec![Object::Reference(file_spec_id)]));
+
+            // Ajouter les métadonnées XMP
+            dict.set("Metadata", Object::Reference(metadata_id));
         }
     }
 
