@@ -11,7 +11,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use tera::{Context, Tera};

@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS sent_invoices (
     created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     validated_at    TIMESTAMP WITH TIME ZONE DEFAULT NULL
 );
+-- NOTA Créer d'abord la table puis, une fois créée, créer les indexes, puis les commentaires
 
 -- Index pour améliorer les recherches
 CREATE INDEX IF NOT EXISTS idx_sent_invoices_company_siret ON sent_invoices(company_siret);

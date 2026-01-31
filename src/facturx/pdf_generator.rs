@@ -5,7 +5,7 @@
 //! - Profil ICC sRGB pour les couleurs
 //! - XML Factur-X en piece jointe
 
-use crate::facturx::xmp_metadata::{FacturXProfile, XmpMetadata};
+use super::xmp_metadata::{FacturXProfile, XmpMetadata};
 use crate::models::invoice::InvoiceForm;
 use crate::EmitterConfig;
 use krilla::color::rgb;
@@ -34,7 +34,6 @@ const FONT_SIZE_HEADER: f32 = 12.0;
 const FONT_SIZE_NORMAL: f32 = 10.0;
 const FONT_SIZE_SMALL: f32 = 8.0;
 const LINE_HEIGHT: f32 = 14.0;
-const LOGO_HEIGHT_PT: f32 = 42.0; // ~15mm
 
 /// Structure pour les polices chargees
 struct FontSet {
