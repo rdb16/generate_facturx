@@ -1,43 +1,102 @@
-//! Générateur PDF Factur-X avec XML embarqué
+//! Generateur PDF/A-3 Factur-X avec XML embarque
 //!
-//! Génère un document PDF contenant :
-//! - Le rendu visuel de la facture
-//! - Le XML Factur-X en pièce jointe (PDF/A-3)
+//! Utilise krilla pour generer un PDF/A-3 conforme avec :
+//! - Polices embarquees (Liberation Sans)
+//! - Profil ICC sRGB pour les couleurs
+//! - XML Factur-X en piece jointe
 
-use crate::facturx::xmp_metadata::{
-    generate_xmp_metadata, validate_xmp_metadata, FacturXProfile, XmpMetadata,
-};
+use crate::facturx::xmp_metadata::{FacturXProfile, XmpMetadata};
 use crate::models::invoice::InvoiceForm;
 use crate::EmitterConfig;
-use lopdf::{dictionary, Object, Stream};
-use printpdf::*;
+use krilla::color::rgb;
+use krilla::configure::{Configuration, Validator};
+use krilla::embed::{AssociationKind, EmbeddedFile, MimeType};
+use krilla::error::KrillaError;
+use krilla::geom::{PathBuilder, Point};
+use krilla::metadata::DateTime;
+use krilla::page::PageSettings;
+use krilla::paint::{Fill, Paint, Stroke};
+use krilla::surface::Surface;
+use krilla::text::{Font, TextDirection};
+use krilla::{Document, SerializeSettings};
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
 
-/// Constantes de mise en page (en mm)
-const PAGE_WIDTH_MM: f32 = 210.0;
-const PAGE_HEIGHT_MM: f32 = 297.0;
-const MARGIN_LEFT: f32 = 20.0;
-const MARGIN_RIGHT: f32 = 20.0;
-const MARGIN_TOP: f32 = 20.0;
+/// Constantes de mise en page (en points, 1pt = 1/72 inch)
+const PAGE_WIDTH_PT: f32 = 595.0; // A4 width
+const PAGE_HEIGHT_PT: f32 = 842.0; // A4 height
+const MARGIN_LEFT: f32 = 57.0; // ~20mm
+const MARGIN_RIGHT: f32 = 57.0;
+const MARGIN_TOP: f32 = 57.0;
 const FONT_SIZE_TITLE: f32 = 18.0;
 const FONT_SIZE_HEADER: f32 = 12.0;
 const FONT_SIZE_NORMAL: f32 = 10.0;
 const FONT_SIZE_SMALL: f32 = 8.0;
-const LINE_HEIGHT: f32 = 5.0;
-const LOGO_HEIGHT_MM: f32 = 15.0; // Hauteur du logo en mm
+const LINE_HEIGHT: f32 = 14.0;
+const LOGO_HEIGHT_PT: f32 = 42.0; // ~15mm
 
-/// Génère le PDF de la facture avec le XML Factur-X embarqué
+/// Structure pour les polices chargees
+struct FontSet {
+    regular: Font,
+    bold: Font,
+}
+
+impl FontSet {
+    fn load() -> Result<Self, String> {
+        let fonts_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/fonts");
+
+        let regular_path = fonts_dir.join("LiberationSans-Regular.ttf");
+        let bold_path = fonts_dir.join("LiberationSans-Bold.ttf");
+
+        let regular_bytes = std::fs::read(&regular_path).map_err(|e| {
+            format!(
+                "Erreur lecture police regular: {} - {}",
+                regular_path.display(),
+                e
+            )
+        })?;
+        let bold_bytes = std::fs::read(&bold_path).map_err(|e| {
+            format!(
+                "Erreur lecture police bold: {} - {}",
+                bold_path.display(),
+                e
+            )
+        })?;
+
+        let regular =
+            Font::new(Arc::new(regular_bytes).into(), 0).ok_or("Erreur creation police regular")?;
+        let bold =
+            Font::new(Arc::new(bold_bytes).into(), 0).ok_or("Erreur creation police bold")?;
+
+        Ok(FontSet { regular, bold })
+    }
+}
+
+/// Genere le PDF/A-3 de la facture avec le XML Factur-X embarque
 pub fn generate_invoice_pdf(
     invoice: &InvoiceForm,
     emitter: &EmitterConfig,
     totals: (f64, f64, f64),
     xml_content: &str,
-    logo_path: Option<&str>,
+    _logo_path: Option<&str>,
 ) -> Result<Vec<u8>, String> {
     let (total_ht, total_vat, total_ttc) = totals;
 
-    // === VALIDATION DES MÉTADONNÉES XMP AVANT CRÉATION DU PDF ===
+    // Charger les polices
+    let fonts = FontSet::load()?;
+
+    // Configurer les parametres de serialisation pour PDF/A-3
+    let config = Configuration::new_with_validator(Validator::A3_B);
+    let settings = SerializeSettings {
+        configuration: config,
+        ..Default::default()
+    };
+
+    // Creer le document avec validation PDF/A-3
+    let mut doc = Document::new_with(settings);
+
+    // Preparer les metadonnees XMP
     let invoice_type_label = match invoice.type_code {
         380 => "Facture",
         381 => "Avoir",
@@ -46,7 +105,7 @@ pub fn generate_invoice_pdf(
         _ => "Facture",
     };
 
-    let xmp_metadata = XmpMetadata {
+    let _xmp_metadata = XmpMetadata {
         title: format!("{} {}", invoice_type_label, invoice.invoice_number),
         author: emitter.name.clone(),
         subject: format!(
@@ -58,103 +117,68 @@ pub fn generate_invoice_pdf(
         facturx_version: "1.0".to_string(),
     };
 
-    // Valider les métadonnées XMP
-    let validation_result = validate_xmp_metadata(&xmp_metadata);
-    if !validation_result.is_valid {
-        let error_messages: Vec<String> = validation_result
-            .errors
-            .iter()
-            .map(|e| format!("{}: {}", e.field, e.message))
-            .collect();
-        return Err(format!(
-            "Validation des métadonnées XMP échouée: {}",
-            error_messages.join("; ")
-        ));
-    }
+    // Creer la page A4
+    let page_settings = PageSettings::from_wh(PAGE_WIDTH_PT, PAGE_HEIGHT_PT)
+        .ok_or("Erreur creation taille page")?;
+    let mut page = doc.start_page_with(page_settings);
+    let mut surface = page.surface();
 
-    // Afficher les avertissements (non bloquants)
-    for warning in &validation_result.warnings {
-        eprintln!("Avertissement XMP: {}", warning);
-    }
+    let mut y_pos = MARGIN_TOP;
 
-    let mut doc = PdfDocument::new(&format!("Facture {}", invoice.invoice_number));
-    let mut ops: Vec<Op> = Vec::new();
-    let mut y_pos = PAGE_HEIGHT_MM - MARGIN_TOP;
+    // Couleur noire pour le texte
+    let black = rgb::Color::new(0, 0, 0);
+    let black_fill = Fill {
+        paint: Paint::from(black),
+        ..Default::default()
+    };
+    surface.set_fill(Some(black_fill.clone()));
 
-    // === LOGO (si disponible, centré en haut de page) ===
-    if let Some(path) = logo_path {
-        if let Some((image_id, img_width, img_height)) = load_logo(&mut doc, path) {
-            // Calculer l'échelle pour que le logo ait la hauteur souhaitée
-            let dpi = 300.0_f32;
-            let scale = LOGO_HEIGHT_MM / (img_height as f32 / dpi * 25.4);
-
-            // Calculer la largeur du logo après mise à l'échelle
-            let logo_width_mm = (img_width as f32 / dpi * 25.4) * scale;
-
-            // Centrer le logo horizontalement
-            let logo_x = (PAGE_WIDTH_MM - logo_width_mm) / 2.0;
-
-            ops.push(Op::UseXobject {
-                id: image_id,
-                transform: XObjectTransform {
-                    translate_x: Some(Pt(mm_to_pt(logo_x))),
-                    translate_y: Some(Pt(mm_to_pt(y_pos - LOGO_HEIGHT_MM))),
-                    scale_x: Some(scale),
-                    scale_y: Some(scale),
-                    dpi: Some(dpi),
-                    rotate: None,
-                },
-            });
-            y_pos -= LOGO_HEIGHT_MM + 5.0;
-        }
-    }
-
-    // === EN-TÊTE : Émetteur ===
-    add_text(
-        &mut ops,
+    // === EN-TETE : Emetteur ===
+    draw_text(
+        &mut surface,
         &emitter.name,
-        BuiltinFont::HelveticaBold,
+        &fonts.bold,
         FONT_SIZE_TITLE,
         MARGIN_LEFT,
         y_pos,
     );
-    y_pos -= 8.0;
+    y_pos += FONT_SIZE_TITLE + 4.0;
 
-    add_text(
-        &mut ops,
+    draw_text(
+        &mut surface,
         &emitter.address,
-        BuiltinFont::Helvetica,
+        &fonts.regular,
         FONT_SIZE_NORMAL,
         MARGIN_LEFT,
         y_pos,
     );
-    y_pos -= LINE_HEIGHT;
+    y_pos += LINE_HEIGHT;
 
-    add_text(
-        &mut ops,
+    draw_text(
+        &mut surface,
         &format!("SIRET: {}", emitter.siret),
-        BuiltinFont::Helvetica,
+        &fonts.regular,
         FONT_SIZE_SMALL,
         MARGIN_LEFT,
         y_pos,
     );
-    y_pos -= LINE_HEIGHT;
+    y_pos += LINE_HEIGHT;
 
     if let Some(ref num_tva) = emitter.num_tva {
         if !num_tva.is_empty() {
-            add_text(
-                &mut ops,
+            draw_text(
+                &mut surface,
                 &format!("TVA: {}", num_tva),
-                BuiltinFont::Helvetica,
+                &fonts.regular,
                 FONT_SIZE_SMALL,
                 MARGIN_LEFT,
                 y_pos,
             );
-            y_pos -= LINE_HEIGHT;
+            y_pos += LINE_HEIGHT;
         }
     }
 
-    y_pos -= 10.0;
+    y_pos += 20.0;
 
     // === TITRE FACTURE ===
     let invoice_type = match invoice.type_code {
@@ -165,21 +189,21 @@ pub fn generate_invoice_pdf(
         _ => "FACTURE",
     };
 
-    add_text(
-        &mut ops,
+    draw_text(
+        &mut surface,
         invoice_type,
-        BuiltinFont::HelveticaBold,
+        &fonts.bold,
         FONT_SIZE_TITLE,
-        PAGE_WIDTH_MM / 2.0 - 20.0,
+        PAGE_WIDTH_PT / 2.0 - 40.0,
         y_pos,
     );
-    y_pos -= 10.0;
+    y_pos += FONT_SIZE_TITLE + 8.0;
 
-    // Numéro de facture
-    add_text(
-        &mut ops,
+    // Numero de facture
+    draw_text(
+        &mut surface,
         &format!("N {}", invoice.invoice_number),
-        BuiltinFont::HelveticaBold,
+        &fonts.bold,
         FONT_SIZE_HEADER,
         MARGIN_LEFT,
         y_pos,
@@ -187,154 +211,159 @@ pub fn generate_invoice_pdf(
 
     // Date
     let date_display = format_date_display(&invoice.issue_date);
-    add_text(
-        &mut ops,
+    draw_text(
+        &mut surface,
         &format!("Date: {}", date_display),
-        BuiltinFont::Helvetica,
+        &fonts.regular,
         FONT_SIZE_NORMAL,
-        PAGE_WIDTH_MM - MARGIN_RIGHT - 50.0,
+        PAGE_WIDTH_PT - MARGIN_RIGHT - 120.0,
         y_pos,
     );
-    y_pos -= LINE_HEIGHT;
+    y_pos += LINE_HEIGHT;
 
     if let Some(ref due_date) = invoice.due_date {
         if !due_date.is_empty() {
             let due_date_display = format_date_display(due_date);
-            add_text(
-                &mut ops,
+            draw_text(
+                &mut surface,
                 &format!("Echeance: {}", due_date_display),
-                BuiltinFont::Helvetica,
+                &fonts.regular,
                 FONT_SIZE_NORMAL,
-                PAGE_WIDTH_MM - MARGIN_RIGHT - 50.0,
+                PAGE_WIDTH_PT - MARGIN_RIGHT - 120.0,
                 y_pos,
             );
-            y_pos -= LINE_HEIGHT;
+            y_pos += LINE_HEIGHT;
         }
     }
 
-    y_pos -= 10.0;
+    y_pos += 20.0;
 
     // === CLIENT ===
-    add_text(
-        &mut ops,
+    draw_text(
+        &mut surface,
         "CLIENT",
-        BuiltinFont::HelveticaBold,
+        &fonts.bold,
         FONT_SIZE_HEADER,
         MARGIN_LEFT,
         y_pos,
     );
-    y_pos -= LINE_HEIGHT + 2.0;
+    y_pos += LINE_HEIGHT + 4.0;
 
-    add_text(
-        &mut ops,
+    draw_text(
+        &mut surface,
         &invoice.recipient_name,
-        BuiltinFont::Helvetica,
+        &fonts.regular,
         FONT_SIZE_NORMAL,
         MARGIN_LEFT,
         y_pos,
     );
-    y_pos -= LINE_HEIGHT;
+    y_pos += LINE_HEIGHT;
 
     if !invoice.recipient_address.is_empty() {
-        add_text(
-            &mut ops,
+        draw_text(
+            &mut surface,
             &invoice.recipient_address,
-            BuiltinFont::Helvetica,
+            &fonts.regular,
             FONT_SIZE_NORMAL,
             MARGIN_LEFT,
             y_pos,
         );
-        y_pos -= LINE_HEIGHT;
+        y_pos += LINE_HEIGHT;
     }
 
-    add_text(
-        &mut ops,
+    draw_text(
+        &mut surface,
         &format!("SIRET: {}", invoice.recipient_siret),
-        BuiltinFont::Helvetica,
+        &fonts.regular,
         FONT_SIZE_SMALL,
         MARGIN_LEFT,
         y_pos,
     );
-    y_pos -= LINE_HEIGHT;
+    y_pos += LINE_HEIGHT;
 
     if let Some(ref vat_number) = invoice.recipient_vat_number {
         if !vat_number.is_empty() {
-            add_text(
-                &mut ops,
+            draw_text(
+                &mut surface,
                 &format!("N TVA: {}", vat_number),
-                BuiltinFont::Helvetica,
+                &fonts.regular,
                 FONT_SIZE_SMALL,
                 MARGIN_LEFT,
                 y_pos,
             );
-            y_pos -= LINE_HEIGHT;
+            y_pos += LINE_HEIGHT;
         }
     }
 
-    add_text(
-        &mut ops,
+    draw_text(
+        &mut surface,
         &format!("Pays: {}", invoice.recipient_country_code),
-        BuiltinFont::Helvetica,
+        &fonts.regular,
         FONT_SIZE_SMALL,
         MARGIN_LEFT,
         y_pos,
     );
-    y_pos -= LINE_HEIGHT;
+    y_pos += LINE_HEIGHT;
 
-    y_pos -= 15.0;
+    y_pos += 30.0;
 
     // === TABLEAU DES LIGNES ===
     let col_desc = MARGIN_LEFT;
-    let col_qty = 100.0;
-    let col_price = 120.0;
-    let col_vat = 145.0;
-    let col_total = 170.0;
+    let col_qty = 280.0;
+    let col_price = 340.0;
+    let col_vat = 410.0;
+    let col_total = 480.0;
 
-    // En-tête du tableau
-    add_text(
-        &mut ops,
+    // En-tete du tableau
+    draw_text(
+        &mut surface,
         "Description",
-        BuiltinFont::HelveticaBold,
+        &fonts.bold,
         FONT_SIZE_SMALL,
         col_desc,
         y_pos,
     );
-    add_text(
-        &mut ops,
+    draw_text(
+        &mut surface,
         "Qte",
-        BuiltinFont::HelveticaBold,
+        &fonts.bold,
         FONT_SIZE_SMALL,
         col_qty,
         y_pos,
     );
-    add_text(
-        &mut ops,
+    draw_text(
+        &mut surface,
         "PU HT",
-        BuiltinFont::HelveticaBold,
+        &fonts.bold,
         FONT_SIZE_SMALL,
         col_price,
         y_pos,
     );
-    add_text(
-        &mut ops,
+    draw_text(
+        &mut surface,
         "TVA",
-        BuiltinFont::HelveticaBold,
+        &fonts.bold,
         FONT_SIZE_SMALL,
         col_vat,
         y_pos,
     );
-    add_text(
-        &mut ops,
+    draw_text(
+        &mut surface,
         "Total HT",
-        BuiltinFont::HelveticaBold,
+        &fonts.bold,
         FONT_SIZE_SMALL,
         col_total,
         y_pos,
     );
 
-    y_pos -= 2.0;
-    add_horizontal_line(&mut ops, MARGIN_LEFT, y_pos, PAGE_WIDTH_MM - MARGIN_RIGHT);
-    y_pos -= LINE_HEIGHT;
+    y_pos += 4.0;
+    draw_horizontal_line(
+        &mut surface,
+        MARGIN_LEFT,
+        y_pos,
+        PAGE_WIDTH_PT - MARGIN_RIGHT,
+    );
+    y_pos += LINE_HEIGHT;
 
     // Lignes de facturation
     for line in &invoice.lines {
@@ -348,48 +377,48 @@ pub fn generate_invoice_pdf(
             line.description.clone()
         };
 
-        add_text(
-            &mut ops,
+        draw_text(
+            &mut surface,
             &desc,
-            BuiltinFont::Helvetica,
+            &fonts.regular,
             FONT_SIZE_SMALL,
             col_desc,
             y_pos,
         );
-        add_text(
-            &mut ops,
+        draw_text(
+            &mut surface,
             &format!("{:.2}", line.quantity),
-            BuiltinFont::Helvetica,
+            &fonts.regular,
             FONT_SIZE_SMALL,
             col_qty,
             y_pos,
         );
-        add_text(
-            &mut ops,
+        draw_text(
+            &mut surface,
             &format!("{:.2}", line.unit_price_ht),
-            BuiltinFont::Helvetica,
+            &fonts.regular,
             FONT_SIZE_SMALL,
             col_price,
             y_pos,
         );
-        add_text(
-            &mut ops,
+        draw_text(
+            &mut surface,
             &format!("{:.1}%", line.vat_rate),
-            BuiltinFont::Helvetica,
+            &fonts.regular,
             FONT_SIZE_SMALL,
             col_vat,
             y_pos,
         );
-        add_text(
-            &mut ops,
+        draw_text(
+            &mut surface,
             &format!("{:.2}", line.total_ht_value()),
-            BuiltinFont::Helvetica,
+            &fonts.regular,
             FONT_SIZE_SMALL,
             col_total,
             y_pos,
         );
 
-        y_pos -= LINE_HEIGHT;
+        y_pos += LINE_HEIGHT;
 
         if let Some(discount) = line.discount_amount {
             if discount > 0.0 {
@@ -398,96 +427,101 @@ pub fn generate_invoice_pdf(
                 } else {
                     line.description.clone()
                 };
-                add_text(
-                    &mut ops,
+                draw_text(
+                    &mut surface,
                     &format!(
                         "  - Rabais sur {}: -{:.2} {}",
                         short_desc, discount, invoice.currency_code
                     ),
-                    BuiltinFont::Helvetica,
+                    &fonts.regular,
                     FONT_SIZE_SMALL,
                     col_desc,
                     y_pos,
                 );
-                y_pos -= LINE_HEIGHT;
+                y_pos += LINE_HEIGHT;
             }
         }
     }
 
-    y_pos -= 5.0;
-    add_horizontal_line(&mut ops, MARGIN_LEFT, y_pos, PAGE_WIDTH_MM - MARGIN_RIGHT);
-    y_pos -= 10.0;
+    y_pos += 8.0;
+    draw_horizontal_line(
+        &mut surface,
+        MARGIN_LEFT,
+        y_pos,
+        PAGE_WIDTH_PT - MARGIN_RIGHT,
+    );
+    y_pos += 20.0;
 
-    // === RÉCAPITULATIF TVA ===
+    // === RECAPITULATIF TVA ===
     let vat_breakdown = calculate_vat_breakdown(invoice);
     if !vat_breakdown.is_empty() {
-        add_text(
-            &mut ops,
+        draw_text(
+            &mut surface,
             "Recapitulatif TVA",
-            BuiltinFont::HelveticaBold,
+            &fonts.bold,
             FONT_SIZE_SMALL,
             MARGIN_LEFT,
             y_pos,
         );
-        y_pos -= LINE_HEIGHT;
+        y_pos += LINE_HEIGHT;
 
         for (rate, (base_ht, vat_amount)) in &vat_breakdown {
-            add_text(
-                &mut ops,
+            draw_text(
+                &mut surface,
                 &format!(
                     "TVA {:.1}% : Base {:.2} {} - TVA {:.2} {}",
                     rate, base_ht, invoice.currency_code, vat_amount, invoice.currency_code
                 ),
-                BuiltinFont::Helvetica,
+                &fonts.regular,
                 FONT_SIZE_SMALL,
-                MARGIN_LEFT + 5.0,
+                MARGIN_LEFT + 10.0,
                 y_pos,
             );
-            y_pos -= LINE_HEIGHT;
+            y_pos += LINE_HEIGHT;
         }
-        y_pos -= 5.0;
+        y_pos += 10.0;
     }
 
     // === TOTAUX ===
-    let totals_x = PAGE_WIDTH_MM - MARGIN_RIGHT - 60.0;
+    let totals_x = PAGE_WIDTH_PT - MARGIN_RIGHT - 150.0;
 
-    add_text(
-        &mut ops,
+    draw_text(
+        &mut surface,
         &format!("Total HT: {:.2} {}", total_ht, invoice.currency_code),
-        BuiltinFont::Helvetica,
+        &fonts.regular,
         FONT_SIZE_NORMAL,
         totals_x,
         y_pos,
     );
-    y_pos -= LINE_HEIGHT;
+    y_pos += LINE_HEIGHT;
 
-    add_text(
-        &mut ops,
+    draw_text(
+        &mut surface,
         &format!("Total TVA: {:.2} {}", total_vat, invoice.currency_code),
-        BuiltinFont::Helvetica,
+        &fonts.regular,
         FONT_SIZE_NORMAL,
         totals_x,
         y_pos,
     );
-    y_pos -= LINE_HEIGHT + 2.0;
+    y_pos += LINE_HEIGHT + 4.0;
 
-    add_text(
-        &mut ops,
+    draw_text(
+        &mut surface,
         &format!("Total TTC: {:.2} {}", total_ttc, invoice.currency_code),
-        BuiltinFont::HelveticaBold,
+        &fonts.bold,
         FONT_SIZE_HEADER,
         totals_x,
         y_pos,
     );
-    y_pos -= 15.0;
+    y_pos += 30.0;
 
     // === CONDITIONS DE PAIEMENT ===
     if let Some(ref payment_terms) = invoice.payment_terms {
         if !payment_terms.is_empty() {
-            add_text(
-                &mut ops,
+            draw_text(
+                &mut surface,
                 &format!("Conditions: {}", payment_terms),
-                BuiltinFont::Helvetica,
+                &fonts.regular,
                 FONT_SIZE_SMALL,
                 MARGIN_LEFT,
                 y_pos,
@@ -496,83 +530,82 @@ pub fn generate_invoice_pdf(
     }
 
     // === PIED DE PAGE ===
-    add_text(
-        &mut ops,
+    draw_text(
+        &mut surface,
         "Facture conforme Factur-X - XML embarque",
-        BuiltinFont::Helvetica,
+        &fonts.regular,
         FONT_SIZE_SMALL,
         MARGIN_LEFT,
-        15.0,
+        PAGE_HEIGHT_PT - 30.0,
     );
 
-    // Créer la page
-    let page = PdfPage::new(Mm(PAGE_WIDTH_MM), Mm(PAGE_HEIGHT_MM), ops);
-    doc.pages.push(page);
+    // Terminer la surface et la page
+    drop(surface);
+    page.finish();
 
-    // Sauvegarder le PDF de base
-    let opts = PdfSaveOptions::default();
-    let mut warnings: Vec<PdfWarnMsg> = Vec::new();
-    let pdf_bytes = doc.save(&opts, &mut warnings);
+    // === EMBARQUER LE XML FACTUR-X ===
+    // Créer la date de modification (requise pour PDF/A-3)
+    let now = chrono::Utc::now();
+    let mod_date = DateTime::new(now.format("%Y").to_string().parse().unwrap_or(2024))
+        .month(now.format("%m").to_string().parse().unwrap_or(1))
+        .day(now.format("%d").to_string().parse().unwrap_or(1))
+        .hour(now.format("%H").to_string().parse().unwrap_or(0))
+        .minute(now.format("%M").to_string().parse().unwrap_or(0))
+        .second(now.format("%S").to_string().parse().unwrap_or(0));
 
-    // Générer les métadonnées XMP
-    let xmp_content = generate_xmp_metadata(&xmp_metadata)?;
-
-    // Embarquer le XML Factur-X et les métadonnées XMP dans le PDF
-    let pdf_with_xml = embed_facturx_xml(&pdf_bytes, xml_content, &xmp_content)?;
-
-    Ok(pdf_with_xml)
-}
-
-/// Ajoute du texte aux opérations PDF
-fn add_text(ops: &mut Vec<Op>, text: &str, font: BuiltinFont, size: f32, x_mm: f32, y_mm: f32) {
-    let x_pt = mm_to_pt(x_mm);
-    let y_pt = mm_to_pt(y_mm);
-
-    ops.push(Op::StartTextSection);
-    ops.push(Op::SetTextCursor {
-        pos: Point {
-            x: Pt(x_pt),
-            y: Pt(y_pt),
-        },
-    });
-    ops.push(Op::SetFontSizeBuiltinFont {
-        size: Pt(size),
-        font,
-    });
-    ops.push(Op::WriteTextBuiltinFont {
-        items: vec![TextItem::Text(text.to_string())],
-        font,
-    });
-    ops.push(Op::EndTextSection);
-}
-
-/// Convertit des millimètres en points
-fn mm_to_pt(mm: f32) -> f32 {
-    mm * 2.834645669
-}
-
-/// Ajoute une ligne horizontale
-fn add_horizontal_line(ops: &mut Vec<Op>, x1_mm: f32, y_mm: f32, x2_mm: f32) {
-    let line = Line {
-        points: vec![
-            LinePoint {
-                p: Point {
-                    x: Pt(mm_to_pt(x1_mm)),
-                    y: Pt(mm_to_pt(y_mm)),
-                },
-                bezier: false,
-            },
-            LinePoint {
-                p: Point {
-                    x: Pt(mm_to_pt(x2_mm)),
-                    y: Pt(mm_to_pt(y_mm)),
-                },
-                bezier: false,
-            },
-        ],
-        is_closed: false,
+    let mime_type = MimeType::new("text/xml").ok_or("Erreur creation MimeType")?;
+    let embedded_xml = EmbeddedFile {
+        path: "factur-x.xml".to_string(),
+        mime_type: Some(mime_type),
+        description: Some("Factur-X XML invoice data".to_string()),
+        association_kind: AssociationKind::Data,
+        data: xml_content.as_bytes().to_vec().into(),
+        modification_date: Some(mod_date),
+        compress: Some(true),
+        location: None,
     };
-    ops.push(Op::DrawLine { line });
+    doc.embed_file(embedded_xml);
+
+    // Finaliser et exporter le PDF
+    match doc.finish() {
+        Ok(pdf_bytes) => Ok(pdf_bytes),
+        Err(KrillaError::Validation(errors)) => {
+            let error_msgs: Vec<String> = errors.iter().map(|e| format!("{:?}", e)).collect();
+            Err(format!(
+                "Erreurs de validation PDF/A-3: {}",
+                error_msgs.join("; ")
+            ))
+        }
+        Err(e) => Err(format!("Erreur generation PDF: {:?}", e)),
+    }
+}
+
+/// Dessine du texte sur la surface
+fn draw_text(surface: &mut Surface, text: &str, font: &Font, size: f32, x: f32, y: f32) {
+    surface.draw_text(
+        Point::from_xy(x, y),
+        font.clone(),
+        size,
+        text,
+        false,
+        TextDirection::Auto,
+    );
+}
+
+/// Dessine une ligne horizontale
+fn draw_horizontal_line(surface: &mut Surface, x1: f32, y: f32, x2: f32) {
+    let mut builder = PathBuilder::new();
+    builder.move_to(x1, y);
+    builder.line_to(x2, y);
+    if let Some(path) = builder.finish() {
+        let gray = rgb::Color::new(128, 128, 128);
+        surface.set_stroke(Some(Stroke {
+            paint: Paint::from(gray),
+            width: 0.5,
+            ..Default::default()
+        }));
+        surface.draw_path(&path);
+    }
 }
 
 /// Convertit une date YYYY-MM-DD en DD/MM/YYYY
@@ -586,7 +619,7 @@ fn format_date_display(date: &str) -> String {
     date.to_string()
 }
 
-/// Calcule le récapitulatif TVA par taux
+/// Calcule le recapitulatif TVA par taux
 fn calculate_vat_breakdown(invoice: &InvoiceForm) -> HashMap<String, (f64, f64)> {
     let mut vat_by_rate: HashMap<String, (f64, f64)> = HashMap::new();
 
@@ -604,132 +637,4 @@ fn calculate_vat_breakdown(invoice: &InvoiceForm) -> HashMap<String, (f64, f64)>
     }
 
     vat_by_rate
-}
-
-/// Charge le logo depuis le chemin spécifié et l'ajoute au document PDF
-/// Retourne l'ID de l'image et ses dimensions (largeur, hauteur) en pixels
-fn load_logo(doc: &mut PdfDocument, path: &str) -> Option<(XObjectId, usize, usize)> {
-    // Construire le chemin complet vers le fichier logo
-    let logo_path = Path::new(path);
-
-    // Lire le fichier image
-    let image_bytes = match std::fs::read(logo_path) {
-        Ok(bytes) => bytes,
-        Err(_) => return None,
-    };
-
-    // Décoder l'image avec printpdf
-    let mut warnings: Vec<PdfWarnMsg> = Vec::new();
-    let raw_image = match RawImage::decode_from_bytes(&image_bytes, &mut warnings) {
-        Ok(img) => img,
-        Err(_) => return None,
-    };
-
-    // Récupérer les dimensions
-    let width = raw_image.width;
-    let height = raw_image.height;
-
-    // Ajouter l'image au document et retourner son ID avec dimensions
-    Some((doc.add_image(&raw_image), width, height))
-}
-
-/// Embarque le XML Factur-X et les métadonnées XMP dans le PDF selon la spécification PDF/A-3
-///
-/// Structure requise :
-/// 1. EmbeddedFile stream contenant le XML
-/// 2. FileSpec dictionary décrivant le fichier
-/// 3. Names dictionary avec EmbeddedFiles name tree
-/// 4. AF array dans le catalog pour PDF/A-3
-/// 5. Metadata stream XMP dans le catalog
-fn embed_facturx_xml(
-    pdf_bytes: &[u8],
-    xml_content: &str,
-    xmp_content: &str,
-) -> Result<Vec<u8>, String> {
-    // Charger le PDF avec lopdf
-    let mut doc = lopdf::Document::load_mem(pdf_bytes)
-        .map_err(|e| format!("Erreur chargement PDF: {}", e))?;
-
-    // 1. Créer le stream EmbeddedFile avec le contenu XML
-    let xml_bytes = xml_content.as_bytes().to_vec();
-    let embedded_file_stream = Stream::new(
-        dictionary! {
-            "Type" => "EmbeddedFile",
-            "Subtype" => Object::Name("text/xml".into()),
-            "Params" => dictionary! {
-                "Size" => Object::Integer(xml_bytes.len() as i64),
-            },
-        },
-        xml_bytes,
-    );
-    let embedded_file_id = doc.add_object(embedded_file_stream);
-
-    // 2. Créer le FileSpec dictionary
-    let file_spec = dictionary! {
-        "Type" => "Filespec",
-        "F" => Object::String("factur-x.xml".into(), lopdf::StringFormat::Literal),
-        "UF" => Object::String("factur-x.xml".into(), lopdf::StringFormat::Literal),
-        "Desc" => Object::String("Factur-X XML invoice".into(), lopdf::StringFormat::Literal),
-        "AFRelationship" => "Data",
-        "EF" => dictionary! {
-            "F" => Object::Reference(embedded_file_id),
-            "UF" => Object::Reference(embedded_file_id),
-        },
-    };
-    let file_spec_id = doc.add_object(file_spec);
-
-    // 3. Créer le Names tree pour EmbeddedFiles
-    let names_array = Object::Array(vec![
-        Object::String("factur-x.xml".into(), lopdf::StringFormat::Literal),
-        Object::Reference(file_spec_id),
-    ]);
-    let embedded_files_dict = dictionary! {
-        "Names" => names_array,
-    };
-    let embedded_files_id = doc.add_object(embedded_files_dict);
-
-    // 4. Créer ou mettre à jour le dictionnaire Names dans le Catalog
-    let names_dict = dictionary! {
-        "EmbeddedFiles" => Object::Reference(embedded_files_id),
-    };
-    let names_dict_id = doc.add_object(names_dict);
-
-    // 5. Créer le stream Metadata XMP
-    let xmp_bytes = xmp_content.as_bytes().to_vec();
-    let metadata_stream = Stream::new(
-        dictionary! {
-            "Type" => "Metadata",
-            "Subtype" => Object::Name("XML".into()),
-        },
-        xmp_bytes,
-    );
-    let metadata_id = doc.add_object(metadata_stream);
-
-    // 6. Mettre à jour le Catalog avec Names, AF et Metadata
-    let catalog_id = doc
-        .trailer
-        .get(b"Root")
-        .ok()
-        .and_then(|r| r.as_reference().ok())
-        .ok_or("Catalog non trouvé")?;
-
-    if let Ok(catalog) = doc.get_object_mut(catalog_id) {
-        if let Object::Dictionary(ref mut dict) = catalog {
-            // Ajouter le dictionnaire Names
-            dict.set("Names", Object::Reference(names_dict_id));
-
-            // Ajouter l'array AF (Associated Files) pour PDF/A-3
-            dict.set("AF", Object::Array(vec![Object::Reference(file_spec_id)]));
-
-            // Ajouter les métadonnées XMP
-            dict.set("Metadata", Object::Reference(metadata_id));
-        }
-    }
-
-    // Sauvegarder le PDF modifié
-    let mut output = Vec::new();
-    doc.save_to(&mut output)
-        .map_err(|e| format!("Erreur sauvegarde PDF: {}", e))?;
-
-    Ok(output)
 }

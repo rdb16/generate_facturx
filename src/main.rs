@@ -1,5 +1,6 @@
-mod facturx;
-mod models;
+use facturx_create::facturx;
+use facturx_create::models;
+use facturx_create::EmitterConfig;
 
 use axum::body::Body;
 use axum::extract::Multipart;
@@ -19,20 +20,6 @@ use tower_http::services::ServeDir;
 use models::error::{FieldError, ValidationResponse};
 use models::invoice::{InvoiceForm, InvoiceTypeCode};
 use models::line::InvoiceLine;
-
-// Config émetteur
-#[derive(Deserialize, Serialize, Clone)]
-struct EmitterConfig {
-    siren: String,
-    siret: String,
-    name: String,
-    address: String,
-    bic: Option<String>,
-    num_tva: Option<String>,
-    logo: Option<String>,
-    xml_storage: Option<String>,
-    pdf_storage: Option<String>,
-}
 
 /// Retourne le chemin URL du logo pour les templates HTML
 /// Transforme un chemin relatif (./assets/logo.jpeg) en URL web (/assets/logo.jpeg)
