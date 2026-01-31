@@ -7,6 +7,7 @@
 
 mod pdf_generator;
 mod xml_generator;
+pub mod xmp_metadata;
 
 pub use pdf_generator::generate_invoice_pdf;
 pub use xml_generator::generate_facturx_xml;
