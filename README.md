@@ -190,9 +190,9 @@ Generate-Factur-X/
 - **Tera** - Moteur de templates
 - **Serde** - Serialisation/deserialisation
 - **Chrono** - Gestion des dates
-- **printpdf** - Generation PDF
-- **lopdf** - Manipulation PDF (embarquement XML)
-- **xml-rs** - Generation XML CII
+- **krilla** - Generation PDF/A-3 conforme
+- **lopdf** - Manipulation PDF (injection XMP Factur-X)
+- **quick-xml** - Generation XML CII
 
 ## Validation
 
@@ -275,9 +275,19 @@ Le XML Factur-X est automatiquement embarque dans le PDF selon la specification 
 
 Cela permet aux logiciels compatibles Factur-X d'extraire automatiquement les donnees structurees de la facture.
 
+### Metadonnees XMP Factur-X
+
+Le PDF genere contient des metadonnees XMP conformes au standard Factur-X :
+- **Namespace Factur-X** : `urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#`
+- **DocumentType** : INVOICE (ou CREDIT NOTE pour les avoirs)
+- **ConformanceLevel** : MINIMUM (profil de conformite)
+- **DocumentFileName** : `factur-x.xml`
+- **Version** : 1.0
+
+Ces metadonnees XMP sont injectees via lopdf apres la generation PDF/A-3 par krilla, garantissant la conformite complete au standard Factur-X.
+
 ## A venir
 
-- Metadonnees XMP pour conformite complete PDF/A-3
 - Validation Schematron
 - Gestion multi-utilisateurs
 - Historique des factures

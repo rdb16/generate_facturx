@@ -4,8 +4,9 @@
 //! - Polices embarquees (Liberation Sans)
 //! - Profil ICC sRGB pour les couleurs
 //! - XML Factur-X en piece jointe
+//! - Metadonnees XMP Factur-X injectees via lopdf
 
-use super::xmp_metadata::{FacturXProfile, XmpMetadata};
+use super::xmp_metadata::{generate_xmp_metadata, FacturXProfile, XmpMetadata};
 use crate::models::invoice::InvoiceForm;
 use crate::EmitterConfig;
 use krilla::color::rgb;
@@ -19,7 +20,9 @@ use krilla::paint::{Fill, Paint, Stroke};
 use krilla::surface::Surface;
 use krilla::text::{Font, TextDirection};
 use krilla::{Document, SerializeSettings};
+use lopdf::{Dictionary, Object, Stream};
 use std::collections::HashMap;
+use std::io::Cursor;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -104,7 +107,7 @@ pub fn generate_invoice_pdf(
         _ => "Facture",
     };
 
-    let _xmp_metadata = XmpMetadata {
+    let xmp_metadata = XmpMetadata {
         title: format!("{} {}", invoice_type_label, invoice.invoice_number),
         author: emitter.name.clone(),
         subject: format!(
@@ -565,18 +568,75 @@ pub fn generate_invoice_pdf(
     };
     doc.embed_file(embedded_xml);
 
-    // Finaliser et exporter le PDF
-    match doc.finish() {
-        Ok(pdf_bytes) => Ok(pdf_bytes),
+    // Finaliser et exporter le PDF avec Krilla
+    let pdf_bytes = match doc.finish() {
+        Ok(bytes) => bytes,
         Err(KrillaError::Validation(errors)) => {
             let error_msgs: Vec<String> = errors.iter().map(|e| format!("{:?}", e)).collect();
-            Err(format!(
+            return Err(format!(
                 "Erreurs de validation PDF/A-3: {}",
                 error_msgs.join("; ")
-            ))
+            ));
         }
-        Err(e) => Err(format!("Erreur generation PDF: {:?}", e)),
-    }
+        Err(e) => return Err(format!("Erreur generation PDF: {:?}", e)),
+    };
+
+    // Generer les metadonnees XMP Factur-X
+    let xmp_string = generate_xmp_metadata(&xmp_metadata)
+        .map_err(|e| format!("Erreur generation XMP: {}", e))?;
+    let xmp_bytes = xmp_string.as_bytes();
+
+    // Utiliser lopdf pour remplacer le stream XMP
+    let pdf_with_xmp = replace_xmp_metadata(&pdf_bytes, xmp_bytes)
+        .map_err(|e| format!("Erreur remplacement XMP: {}", e))?;
+
+    Ok(pdf_with_xmp)
+}
+
+/// Remplace les metadonnees XMP dans un PDF existant
+fn replace_xmp_metadata(pdf_bytes: &[u8], xmp_bytes: &[u8]) -> Result<Vec<u8>, String> {
+    use lopdf::Document;
+
+    // Charger le PDF depuis les bytes
+    let mut doc =
+        Document::load_mem(pdf_bytes).map_err(|e| format!("Erreur chargement PDF: {:?}", e))?;
+
+    // Trouver la reference /Metadata dans le catalogue
+    let catalog_id = doc
+        .catalog()
+        .map_err(|e| format!("Erreur acces catalogue: {:?}", e))?;
+
+    let catalog = doc
+        .get_object(catalog_id)
+        .map_err(|e| format!("Erreur lecture catalogue: {:?}", e))?
+        .as_dict()
+        .map_err(|_| "Le catalogue n'est pas un dictionnaire")?
+        .clone();
+
+    // Chercher la reference /Metadata
+    let metadata_ref = catalog
+        .get(b"Metadata")
+        .map_err(|_| "Pas de reference /Metadata dans le catalogue")?
+        .as_reference()
+        .map_err(|_| "/Metadata n'est pas une reference")?;
+
+    // Creer le nouveau stream XMP avec le dictionnaire approprie
+    let mut xmp_dict = Dictionary::new();
+    xmp_dict.set("Type", Object::Name(b"Metadata".to_vec()));
+    xmp_dict.set("Subtype", Object::Name(b"XML".to_vec()));
+    xmp_dict.set("Length", Object::Integer(xmp_bytes.len() as i64));
+
+    let xmp_stream = Stream::new(xmp_dict, xmp_bytes.to_vec());
+
+    // Remplacer l'objet XMP existant
+    doc.objects.insert(metadata_ref, Object::Stream(xmp_stream));
+
+    // Sauvegarder le PDF modifie en memoire
+    let mut output = Vec::new();
+    doc.save_to(&mut output)
+        .map_err(|e| format!("Erreur sauvegarde PDF: {:?}", e))?;
+
+    Ok(output)
 }
 
 /// Dessine du texte sur la surface
