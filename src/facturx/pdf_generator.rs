@@ -22,7 +22,6 @@ use krilla::text::{Font, TextDirection};
 use krilla::{Document, SerializeSettings};
 use lopdf::{Dictionary, Object, Stream};
 use std::collections::HashMap;
-use std::io::Cursor;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -601,17 +600,10 @@ fn replace_xmp_metadata(pdf_bytes: &[u8], xmp_bytes: &[u8]) -> Result<Vec<u8>, S
     let mut doc =
         Document::load_mem(pdf_bytes).map_err(|e| format!("Erreur chargement PDF: {:?}", e))?;
 
-    // Trouver la reference /Metadata dans le catalogue
-    let catalog_id = doc
+    // Acceder au catalogue (retourne directement un &Dictionary dans lopdf 0.34)
+    let catalog = doc
         .catalog()
         .map_err(|e| format!("Erreur acces catalogue: {:?}", e))?;
-
-    let catalog = doc
-        .get_object(catalog_id)
-        .map_err(|e| format!("Erreur lecture catalogue: {:?}", e))?
-        .as_dict()
-        .map_err(|_| "Le catalogue n'est pas un dictionnaire")?
-        .clone();
 
     // Chercher la reference /Metadata
     let metadata_ref = catalog
